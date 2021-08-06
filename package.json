@@ -1,0 +1,13 @@
+{
+    "author": "Magic Leap",
+    "dependencies": {
+    },
+    "description": "Network Anchors",
+    "displayName": "Network Anchors",
+    "keywords": [ "unity" ],
+    "license": "SEE LICENSE IN LICENSE",
+    "name": "com.magicleap.spectator.networkanchors",
+    "unity": "2020.2",
+    "unityRelease": "0f1",
+    "version": "1.0.0"
+}
