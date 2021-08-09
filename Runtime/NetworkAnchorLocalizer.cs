@@ -5,10 +5,10 @@ using System.Linq;
 
 public class NetworkAnchorLocalizer : MonoBehaviour
 {
-    public string PlayerId;
+    private string _localPlayerId;
+    private IGenericCoordinateProvider _genericCoordinateProvider;
 
     public NetworkAnchorService NetworkAnchorService;
-    public IGenericCoordinateProvider GenericCoordinateProvider;
 
     private bool _didReceiveNetworkAnchor;
     private bool _isLocalized;
@@ -16,14 +16,18 @@ public class NetworkAnchorLocalizer : MonoBehaviour
 
     public UnityEvent OnAnchorPlaced;
 
+    void Awake()
+    {
+        NetworkAnchorService.OnServiceStarted += StartLocalizer;
+    }
     // Start is called before the first frame update
-    public void StartLocalizer(string playerId, IGenericCoordinateProvider coordinateProvider)
+    private void StartLocalizer(string playerId, IGenericCoordinateProvider coordinateProvider)
     {
 
-        PlayerId = playerId;
-        GenericCoordinateProvider = coordinateProvider;
+        _localPlayerId = playerId;
+        _genericCoordinateProvider = coordinateProvider;
 
-        GenericCoordinateProvider.InitializeGenericCoordinates();
+        _genericCoordinateProvider.InitializeGenericCoordinates();
         LocateExistingAnchor();
 
         //Listen to the network to see if an Anchor was created while we were waiting.
@@ -50,7 +54,7 @@ public class NetworkAnchorLocalizer : MonoBehaviour
         yield return new WaitForEndOfFrame();
 
         //Create a dummy anchor and send it to see if a network anchor exists.
-        var dummyAnchor = new NetworkAnchor() { OwnerId = PlayerId };
+        var dummyAnchor = new NetworkAnchor() { OwnerId = _localPlayerId };
         var createAnchorRequest = NetworkAnchorService.SendCreateNetworkAnchorRequest(dummyAnchor);
         while (!createAnchorRequest.IsCompleted)
         {
@@ -71,7 +75,7 @@ public class NetworkAnchorLocalizer : MonoBehaviour
         if(obj.ResponseCode != NetworkAnchorService.ResultCode.SUCCESS)
             return;
 
-        if (obj.NetworkAnchor.OwnerId != PlayerId)
+        if (obj.NetworkAnchor.OwnerId != _localPlayerId)
             GetSharedAnchor(true);
     }
 
@@ -82,7 +86,7 @@ public class NetworkAnchorLocalizer : MonoBehaviour
 
     void OnDestroy()
     {
-        GenericCoordinateProvider.DisableGenericCoordinates();
+        _genericCoordinateProvider.DisableGenericCoordinates();
     }
 
     public void CreateOrGetAnchor()
@@ -130,7 +134,7 @@ public class NetworkAnchorLocalizer : MonoBehaviour
     {
         if (_didReceiveNetworkAnchor == false)
         {
-            var dummyAnchor = new NetworkAnchor() { OwnerId = PlayerId };
+            var dummyAnchor = new NetworkAnchor() { OwnerId = _localPlayerId };
             //Try to upload a dummy anchor and see if the server already has one
             var createAnchorRequest = NetworkAnchorService.SendCreateNetworkAnchorRequest(dummyAnchor);
 
@@ -158,7 +162,7 @@ public class NetworkAnchorLocalizer : MonoBehaviour
         yield return new WaitForEndOfFrame();
 
 #if PLATFORM_LUMIN
-        var genericCoordinateRequest = GenericCoordinateProvider.RequestCoordinateReferences(true);
+        var genericCoordinateRequest = _genericCoordinateProvider.RequestCoordinateReferences(true);
 
         while (!genericCoordinateRequest.IsCompleted)
         {
@@ -172,7 +176,7 @@ public class NetworkAnchorLocalizer : MonoBehaviour
             yield break;
         }
 
-        var uploadCoordinatesRequest = NetworkAnchorService.SendUploadCoordinatesRequest(PlayerId, genericCoordinateRequest.Result);
+        var uploadCoordinatesRequest = NetworkAnchorService.SendUploadCoordinatesRequest(_localPlayerId, genericCoordinateRequest.Result);
 
         while (!uploadCoordinatesRequest.IsCompleted)
         {
@@ -184,7 +188,7 @@ public class NetworkAnchorLocalizer : MonoBehaviour
         if (uploadCoordinatesRequest.Result.ResponseCode == NetworkAnchorService.ResultCode.SUCCESS)
         {
             anchor = new NetworkAnchor("origin", genericCoordinateRequest.Result[0], transform.position,
-                transform.rotation){OwnerId = PlayerId};
+                transform.rotation){OwnerId = _localPlayerId};
             Debug.Log("Creating new anchor " + anchor.LinkedCoordinate.CoordinateId);
 
         }
@@ -228,7 +232,7 @@ public class NetworkAnchorLocalizer : MonoBehaviour
         //Wait a frame
         yield return new WaitForEndOfFrame();
 #if PLATFORM_LUMIN
-        var genericCoordinateRequest = GenericCoordinateProvider.RequestCoordinateReferences(true);
+        var genericCoordinateRequest = _genericCoordinateProvider.RequestCoordinateReferences(true);
 
         while (!genericCoordinateRequest.IsCompleted)
         {
@@ -242,7 +246,7 @@ public class NetworkAnchorLocalizer : MonoBehaviour
             yield break;
         }
 
-        var getNetworkAnchorRequest = NetworkAnchorService.SendGetSharedNetworkAnchorRequest(PlayerId, genericCoordinateRequest.Result);
+        var getNetworkAnchorRequest = NetworkAnchorService.SendGetSharedNetworkAnchorRequest(_localPlayerId, genericCoordinateRequest.Result);
 
         while (!getNetworkAnchorRequest.IsCompleted)
         {

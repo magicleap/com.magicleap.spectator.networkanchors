@@ -10,7 +10,6 @@ using UnityEngine;
 public class StandaloneCoordinateProvider : MonoBehaviour, IGenericCoordinateProvider
 {
     public NetworkAnchorService NetworkAnchorService;
-    public NetworkAnchorLocalizer NetworkAnchorLocalizer;
 
     public async Task<List<GenericCoordinateReference>> RequestCoordinateReferences(bool refresh)
     {
@@ -18,7 +17,7 @@ public class StandaloneCoordinateProvider : MonoBehaviour, IGenericCoordinatePro
 
         //Request to download them
         var downloadHostCoordinatesRequest =
-            NetworkAnchorService.SendDownloadHostCoordinatesRequest(NetworkAnchorLocalizer.PlayerId);
+            NetworkAnchorService.SendDownloadHostCoordinatesRequest(NetworkAnchorService.PlayerId);
         while (downloadHostCoordinatesRequest.IsCompleted)
         {
             await Task.Delay(100);

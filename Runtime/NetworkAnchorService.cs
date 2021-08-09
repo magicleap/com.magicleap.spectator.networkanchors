@@ -11,6 +11,13 @@ public class NetworkAnchorService : MonoBehaviour
     //The main Player's Pcfs
     private PlayerPcfReference _mainPlayerPcfReference;
 
+    //The LocalPlayers ID
+    public string PlayerId;
+    //The Coordinate Service that is being used
+    public IGenericCoordinateProvider GenericCoordinateProvider;
+    //Local Player Start Service Event
+    public Action<string,IGenericCoordinateProvider> OnServiceStarted;
+
     //Network Response actions
     public Action<UploadCoordinatesResponse> OnCoordinatesUploaded;
     public Action<CreateAnchorResponse> OnNetworkAnchorCreated;
@@ -83,7 +90,13 @@ public class NetworkAnchorService : MonoBehaviour
         FAILED = 100
     }
 
+    public void StartService(string playerId, IGenericCoordinateProvider coordinateProvider)
+    {
+        PlayerId = playerId;
+        GenericCoordinateProvider = coordinateProvider;
 
+        OnServiceStarted?.Invoke(playerId,coordinateProvider);
+    }
 
     //Process Network Events
     public void ProcessNetworkEvents(byte eventCode, object jsonData)
