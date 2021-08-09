@@ -11,6 +11,14 @@ public class StandaloneCoordinateProvider : MonoBehaviour, IGenericCoordinatePro
 {
     public NetworkAnchorService NetworkAnchorService;
 
+    public void OnValidate()
+    {
+        if (NetworkAnchorService == null)
+        {
+            NetworkAnchorService = FindObjectOfType<NetworkAnchorService>();
+        }
+    }
+
     public async Task<List<GenericCoordinateReference>> RequestCoordinateReferences(bool refresh)
     {
         //On the desktop client, we use the hosts coordinates

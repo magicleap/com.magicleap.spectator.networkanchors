@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
 
+[DisallowMultipleComponent]
 public class NetworkAnchorService : MonoBehaviour
 {
     //The Main Network Anchor

@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.Events;
 using System.Linq;
 
+[DisallowMultipleComponent]
 public class NetworkAnchorLocalizer : MonoBehaviour
 {
     private string _localPlayerId;
@@ -16,6 +17,13 @@ public class NetworkAnchorLocalizer : MonoBehaviour
 
     public UnityEvent OnAnchorPlaced;
 
+    void OnValidate()
+    {
+        if (NetworkAnchorService == null)
+        {
+            NetworkAnchorService = FindObjectOfType<NetworkAnchorService>();
+        }
+    }
     void Awake()
     {
         NetworkAnchorService.OnServiceStarted += StartLocalizer;
