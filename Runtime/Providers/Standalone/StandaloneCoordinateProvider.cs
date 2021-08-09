@@ -11,7 +11,7 @@ public class StandaloneCoordinateProvider : MonoBehaviour, IGenericCoordinatePro
 {
     public NetworkAnchorService NetworkAnchorService;
 
-    public void OnValidate()
+    public void Reset()
     {
         if (NetworkAnchorService == null)
         {

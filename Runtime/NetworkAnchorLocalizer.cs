@@ -17,7 +17,7 @@ public class NetworkAnchorLocalizer : MonoBehaviour
 
     public UnityEvent OnAnchorPlaced;
 
-    void OnValidate()
+    void Reset()
     {
         if (NetworkAnchorService == null)
         {
