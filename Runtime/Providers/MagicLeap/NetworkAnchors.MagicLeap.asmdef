@@ -1,0 +1,20 @@
+{
+    "name": "NetworkAnchors.MagicLeap",
+    "rootNamespace": "",
+    "references": [
+        "GUID:207648dc5008a3b4faafef6c40b7b8ec",
+        "GUID:1fc69d160eafe774ab0a8e5191500311"
+    ],
+    "includePlatforms": [
+        "Editor",
+        "Lumin"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

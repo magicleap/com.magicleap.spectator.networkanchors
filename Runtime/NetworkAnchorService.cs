@@ -7,7 +7,7 @@ using UnityEngine;
 public class NetworkAnchorService : MonoBehaviour
 {
     //The Main Network Anchor
-    public NetworkAnchor NetworkAnchor;
+    public NetworkAnchor NetworkAnchor { get; private set; }
     //The main Player's Pcfs
     private PlayerPcfReference _mainPlayerPcfReference;
 
@@ -26,25 +26,18 @@ public class NetworkAnchorService : MonoBehaviour
     public delegate void BroadcastNetworkEvent(byte networkEventCode, string jsonData, int[] players);
     public BroadcastNetworkEvent OnBroadcastNetworkEvent;
 
-    //End
-
     public bool NetworkAnchorIsValid
     {
         get { return NetworkAnchor != null && !string.IsNullOrEmpty(NetworkAnchor.AnchorId); }
     }
 
-    //For Debugging
-    [SerializeField]
     private PlayerPcfReference _localPcfReferences;
-    //End
-
 
     //Client Request Event Codes
     public const byte UploadCoordinatesRequestEventCode = 101;
     public const byte CreateAnchorRequestEventCode = 102;
     public const byte SharedAnchorRequestEventCode = 103;
     public const byte GetHostCoordinatesRequestEventCode = 104;
-    //End
 
     //Server Responses
     public class UploadCoordinatesResponse
@@ -70,14 +63,12 @@ public class NetworkAnchorService : MonoBehaviour
         public ResultCode ResponseCode;
         public PlayerPcfReference PlayerPcfReference;
     }
-    //End
 
     //Client request tasks. 
     TaskCompletionSource<UploadCoordinatesResponse> _uploadCoordinatesCompletionSource;
     TaskCompletionSource<CreateAnchorResponse> _createNetworkAnchorCompletionSource;
     TaskCompletionSource<SharedAnchorResponse> _sharedAnchorRequestCompletionSource;
     TaskCompletionSource<GetHostCoordinatesResponse> _downloadHostCoordinatesCompletionSource;
-    //End
 
     //Response Result Codes
     public enum ResultCode
@@ -91,7 +82,8 @@ public class NetworkAnchorService : MonoBehaviour
         MISSING_COORDINATES,
         FAILED = 100
     }
-    //End
+
+
 
     //Process Network Events
     public void ProcessNetworkEvents(byte eventCode, object jsonData)
@@ -151,7 +143,6 @@ public class NetworkAnchorService : MonoBehaviour
         }
         #endregion
     }
-    //End
 
     //Client Requests Logic
     public async Task<SharedAnchorResponse> SendGetSharedNetworkAnchorRequest(string playerId, List<GenericCoordinateReference> pcfIds)
