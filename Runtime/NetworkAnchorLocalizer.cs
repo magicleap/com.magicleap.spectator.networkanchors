@@ -94,7 +94,7 @@ public class NetworkAnchorLocalizer : MonoBehaviour
 
     void OnDestroy()
     {
-        _genericCoordinateProvider.DisableGenericCoordinates();
+        _genericCoordinateProvider?.DisableGenericCoordinates();
     }
 
     public void CreateOrGetAnchor()

@@ -56,11 +56,9 @@ public class NetworkAnchor
         // A = PCF.Orientation
         // B = transform.rotation
         // C = OrientationOffset
-        Debug.Log(worldRotation);
 
         Quaternion relOrientation = Quaternion.Inverse(referenceCoordinate.Rotation) * worldRotation;
         RelativeRotation = relOrientation;
-        Debug.Log(RelativeRotation);
 
 
         // Relative Position is dependent on Relative Orientation

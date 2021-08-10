@@ -78,6 +78,8 @@ public class NetworkAnchorService : MonoBehaviour
     TaskCompletionSource<SharedAnchorResponse> _sharedAnchorRequestCompletionSource;
     TaskCompletionSource<GetHostCoordinatesResponse> _downloadHostCoordinatesCompletionSource;
 
+    private bool _debug = true;
+
     //Response Result Codes
     public enum ResultCode
     {
@@ -127,7 +129,13 @@ public class NetworkAnchorService : MonoBehaviour
 
         if (eventCode == GetHostCoordinatesResponse.EventCode)
         {
+            if(_debug)
+                Debug.Log("Got download network anchor response from server { " + jsonData + "}");
+
             GetHostCoordinatesResponse result = JsonUtility.FromJson<GetHostCoordinatesResponse>((string)jsonData);
+            if (_debug)
+                Debug.Log("Result = " + result.ResponseCode);
+
             _downloadHostCoordinatesCompletionSource.TrySetResult(result);
             OnReceiveHostedCoordinates?.Invoke(result);
         }
@@ -153,6 +161,9 @@ public class NetworkAnchorService : MonoBehaviour
 
         if (eventCode == GetHostCoordinatesRequestEventCode)
         {
+            if (_debug)
+                Debug.Log("Received get host coordinates request");
+
             ProcessGetHostCoordinatesRequest((string)jsonData);
         }
         #endregion
@@ -204,7 +215,7 @@ public class NetworkAnchorService : MonoBehaviour
     public async Task<GetHostCoordinatesResponse> SendDownloadHostCoordinatesRequest(string playerId)
     {
         _downloadHostCoordinatesCompletionSource = new TaskCompletionSource<GetHostCoordinatesResponse>();
-
+        
         SendNetworkEvent(GetHostCoordinatesRequestEventCode, playerId, new int[1] { -1 });
 
         while (!_downloadHostCoordinatesCompletionSource.Task.IsCompleted)
@@ -324,10 +335,13 @@ public class NetworkAnchorService : MonoBehaviour
         }
         else
         {
-            Debug.Log("Network Anchor 1 " + JsonUtility.ToJson(NetworkAnchor));
+            if (_debug)
+                Debug.Log("Found host's anchor " + JsonUtility.ToJson(NetworkAnchor));
+
             var resultAnchor = new NetworkAnchor(NetworkAnchor.AnchorId, coordinateReference, NetworkAnchor.GetWorldPosition(),NetworkAnchor.GetWorldRotation());
-            
-            Debug.Log("Result Network Anchor 2 " + JsonUtility.ToJson(resultAnchor));
+           
+            if (_debug)
+                Debug.Log("Returning Network Anchor to player " + JsonUtility.ToJson(resultAnchor));
 
             string anchorResultJson = JsonUtility.ToJson(new SharedAnchorResponse() { NetworkAnchor = resultAnchor, ResponseCode = ResultCode.SUCCESS });
             SendNetworkEvent(SharedAnchorResponse.EventCode, anchorResultJson, new[] { int.Parse(playerReference.PlayerId) });
@@ -344,6 +358,9 @@ public class NetworkAnchorService : MonoBehaviour
                 ResponseCode = ResultCode.SUCCESS
             };
 
+            if (_debug)
+                Debug.Log("Getting network anchors was successful");
+
             SendNetworkEvent(GetHostCoordinatesResponse.EventCode, JsonUtility.ToJson(resultData), new[] { int.Parse(playerId) });
         }
         else
@@ -352,6 +369,9 @@ public class NetworkAnchorService : MonoBehaviour
             {
                 ResponseCode = ResultCode.MISSING_COORDINATES
             };
+
+            if (_debug)
+                Debug.Log("Could not get network anchors, ResultCode.MISSING_COORDINATES");
 
             SendNetworkEvent(GetHostCoordinatesResponse.EventCode, JsonUtility.ToJson(resultData), new[] { int.Parse(playerId) });
         }

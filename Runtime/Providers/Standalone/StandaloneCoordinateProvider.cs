@@ -21,17 +21,27 @@ public class StandaloneCoordinateProvider : MonoBehaviour, IGenericCoordinatePro
 
     public async Task<List<GenericCoordinateReference>> RequestCoordinateReferences(bool refresh)
     {
-        //On the desktop client, we use the hosts coordinates
-
         //Request to download them
         var downloadHostCoordinatesRequest =
             NetworkAnchorService.SendDownloadHostCoordinatesRequest(NetworkAnchorService.PlayerId);
-        while (downloadHostCoordinatesRequest.IsCompleted)
+
+        await Task.Delay(100);
+
+        while (downloadHostCoordinatesRequest.Status == TaskStatus.Running || downloadHostCoordinatesRequest.Status == TaskStatus.WaitingForActivation)
         {
             await Task.Delay(100);
         }
+
         //Return them as our own
-        return downloadHostCoordinatesRequest.Result.PlayerPcfReference.CoordinateReferences;
+        if (downloadHostCoordinatesRequest.IsCompleted && downloadHostCoordinatesRequest.Result != null)
+        {
+            return downloadHostCoordinatesRequest.Result.PlayerPcfReference.CoordinateReferences;
+        }
+        else
+        {
+            Debug.LogError("Could not download anchors " + downloadHostCoordinatesRequest.Status);
+            return null;
+        }
     }
 
     public void InitializeGenericCoordinates()
