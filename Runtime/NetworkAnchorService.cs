@@ -1,29 +1,72 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 
 [DisallowMultipleComponent]
 public class NetworkAnchorService : MonoBehaviour
 {
-    private List<PlayerPcfReference> playerCoordinateReferences = new List<PlayerPcfReference>();
+    //Server or Host
+    private List<int> _connectedPlayers = new List<int>();
 
-    //The LocalPlayers ID
-    public string _localPlayerId;
+    //Player
+    private int _localPlayerId;
+
+    public NetworkAnchor LocalNetworkAnchor
+    {
+        get
+        {
+            return _localNetworkAnchor;
+        }
+        private set
+        {
+            if(_localNetworkAnchor !=value)
+                OnNetworkAnchorChanged?.Invoke(value);
+            _localNetworkAnchor = value;
+        }
+    }
+    private NetworkAnchor _localNetworkAnchor;
+
+    private List<GenericCoordinateReference> _genericCoordinateReferences;
+    
     //The Coordinate Service that is being used
-    public IGenericCoordinateProvider GenericCoordinateProvider;
-    //Local Player Start Service Event
-    public Action<string,IGenericCoordinateProvider> OnServiceStarted;
+    private IGenericCoordinateProvider _genericCoordinateProvider;
 
-    //Network Response actions
-    public Action<UploadCoordinatesResponse> OnCoordinatesUploaded;
-    public Action<CreateAnchorResponse> OnNetworkAnchorCreated;
-    public Action<SharedAnchorResponse> OnReceiveNetworkAnchor;
-    public Action<GetHostCoordinatesResponse> OnReceiveHostedCoordinates;
+    public bool IsConnected
+    {
+        get
+        {
+            return _isConnected;
+        }
+        private set
+        {
+            if(_isConnected !=value)
+                OnConnectionChanged?.Invoke(value);
+            _isConnected = value;
+
+        }
+    }
+
+    private bool _isConnected;
 
     /// <summary>
-    /// Function used to send the network events to the client and server
+    /// Is called when the local network anchor changes
+    /// </summary>
+    /// <param name="players">The new networ anchor value</param>
+    public delegate void ConditionalEvent(bool networkAnchor);
+    public ConditionalEvent OnConnectionChanged;
+
+    /// <summary>
+    /// Is called when the local network anchor changes
+    /// </summary>
+    /// <param name="players">The new networ anchor value</param>
+    public delegate void NetworkAnchorEvent(NetworkAnchor networkAnchor);
+    public NetworkAnchorEvent OnNetworkAnchorChanged;
+
+    /// <summary>
+    /// Is called when the service needs to send network events
     /// </summary>
     /// <param name="networkEventCode">The network event code that is referenced to ensure the current parser for the data</param>
     /// <param name="jsonData">The event data json file that will be parsed</param>
@@ -31,513 +74,88 @@ public class NetworkAnchorService : MonoBehaviour
     public delegate void BroadcastNetworkEvent(byte networkEventCode, string jsonData, int[] players);
     public BroadcastNetworkEvent OnBroadcastNetworkEvent;
 
-
-    private PlayerPcfReference _localPcfReferences;
-
-    //Client Request Event Codes
-    public const byte UploadCoordinatesRequestEventCode = 101;
-    public const byte CreateAnchorRequestEventCode = 102;
-    public const byte SharedAnchorRequestEventCode = 103;
-    public const byte GetHostCoordinatesRequestEventCode = 104;
-    public class DownloadRemoteCoordinatesRequest
-    {
-        public string SenderId;
-        public string TargetId;
-    }
-    public class HasNetworkAnchorRequest
-    {
-        public const byte GetHostCoordinatesRequestEventCode = 105;
-        public string SenderId;
-        public string TargetId;
-    }
- 
-
-    //Server Responses
-    public class UploadCoordinatesResponse
-    {
-        public const byte EventCode = 11;
-        public ResultCode ResponseCode;
-    }
-    public class CreateAnchorResponse
-    {
-        public const byte EventCode = 12;
-        public ResultCode ResponseCode;
-        public NetworkAnchor NetworkAnchor;
-    }
-    public class SharedAnchorResponse
-    {
-        public const byte EventCode = 13;
-        public ResultCode ResponseCode;
-        public NetworkAnchor NetworkAnchor;
-    }
-    public class GetHostCoordinatesResponse
-    {
-        public const byte EventCode = 14;
-        public ResultCode ResponseCode;
-        public PlayerPcfReference PlayerPcfReference;
-    }
-    public class HasNetworkAnchorResponse
-    {
-        public const byte EventCode = 15;
-        public bool Value;
-        public ResultCode ResponseCode;
-    }
-
-    //Client request tasks. 
-    TaskCompletionSource<UploadCoordinatesResponse> _uploadCoordinatesCompletionSource;
-    TaskCompletionSource<CreateAnchorResponse> _createNetworkAnchorCompletionSource;
-    TaskCompletionSource<SharedAnchorResponse> _sharedAnchorRequestCompletionSource;
-    TaskCompletionSource<GetHostCoordinatesResponse> _downloadHostCoordinatesCompletionSource;
-    TaskCompletionSource<HasNetworkAnchorResponse> _hasNetworkAnchorRequestCompletionSource;
-
-    private bool _debug = true;
-
-    //Response Result Codes
     public enum ResultCode
     {
         UNKNOWN = 0,
         SUCCESS,
-        EXISTS,
-        MISSING_INFORMATION,
-        MISSING_ANCHOR,
-        MISSING_SHARED_COORDINATE,
-        MISSING_COORDINATES,
-        FAILED = 100
+        NO_MATCHES_FOUND,
+        FAILED = 100,
     }
 
-    public void StartService(string playerId, IGenericCoordinateProvider coordinateProvider)
+    public enum SendCode
     {
-        _localPlayerId = playerId;
-        GenericCoordinateProvider = coordinateProvider;
-        GenericCoordinateProvider.InitializeGenericCoordinates();
-        OnServiceStarted?.Invoke(playerId,coordinateProvider);
+        MASTER_CLIENT = -1,
+        OTHERS = -2,
+        ALL =-3
     }
 
-    private void OnDestroy()
-    {
-        GenericCoordinateProvider?.DisableGenericCoordinates();
-    }
+    const int RequestTimeoutMs = 3000;
 
-    //Process Network Events
+    [SerializeField] private bool _verboseLogging = true;
+
     public void ProcessNetworkEvents(byte eventCode, object jsonData)
     {
-        #region Client
+        if(_verboseLogging)
+         Debug.Log("Received Message with code" + eventCode);
 
-        if (eventCode == SharedAnchorResponse.EventCode)
+        if (eventCode == GetNetworkAnchorRequest.EventCode)
         {
-            SharedAnchorResponse result = JsonUtility.FromJson<SharedAnchorResponse>((string)jsonData);
-            _sharedAnchorRequestCompletionSource.TrySetResult(result);
-            OnReceiveNetworkAnchor?.Invoke(result);
+            GetNetworkAnchorRequest result = JsonUtility.FromJson<GetNetworkAnchorRequest>((string)jsonData);
+            ProcessNetworkAnchorRequest(result);
         }
 
-        if (eventCode == CreateAnchorResponse.EventCode)
+        if (eventCode == GetNetworkAnchorResponse.EventCode)
         {
-            CreateAnchorResponse result = JsonUtility.FromJson<CreateAnchorResponse>((string)jsonData);
-            _createNetworkAnchorCompletionSource.TrySetResult(result);
-            OnNetworkAnchorCreated?.Invoke(result);
+            GetNetworkAnchorResponse result = JsonUtility.FromJson<GetNetworkAnchorResponse>((string)jsonData);
+            Debug.Log((string)jsonData);
+          _getNetworkAnchorResponseCompletionSource?.TrySetResult(result);
         }
 
-        if (eventCode == UploadCoordinatesResponse.EventCode)
+
+        if (eventCode == CreateNetworkAnchorRequest.EventCode)
         {
-            UploadCoordinatesResponse result = JsonUtility.FromJson<UploadCoordinatesResponse>((string)jsonData);
-            _uploadCoordinatesCompletionSource.TrySetResult(result);
-            OnCoordinatesUploaded?.Invoke(result);
+            CreateNetworkAnchorRequest result = JsonUtility.FromJson<CreateNetworkAnchorRequest>((string)jsonData);
+            ProcessCreateNetworkAnchorRequest(result);
         }
 
-        if (eventCode == GetHostCoordinatesResponse.EventCode)
+        if (eventCode == CreateNetworkAnchorResponse.EventCode)
         {
-            if(_debug)
-                Debug.Log("Got download network anchor response from server { " + jsonData + "}");
-
-            GetHostCoordinatesResponse result = JsonUtility.FromJson<GetHostCoordinatesResponse>((string)jsonData);
-            if (_debug)
-                Debug.Log("Result = " + result.ResponseCode);
-
-            _downloadHostCoordinatesCompletionSource.TrySetResult(result);
-            OnReceiveHostedCoordinates?.Invoke(result);
+            CreateNetworkAnchorResponse result = JsonUtility.FromJson<CreateNetworkAnchorResponse>((string)jsonData);
+            _createNetworkAnchorResponseCompletionSource?.TrySetResult(result);
         }
 
-        #endregion
-
-        #region Server
-
-        if (eventCode == UploadCoordinatesRequestEventCode)
+        if (eventCode == ConnectToServiceRequest.EventCode)
         {
-            ProcessCoordinatesUpload((string)jsonData);
+            ConnectToServiceRequest result = JsonUtility.FromJson<ConnectToServiceRequest>((string)jsonData);
+            ProcessConnectToServiceRequest(result);
         }
 
-        if (eventCode == CreateAnchorRequestEventCode)
+        if (eventCode == DisconnectFromServiceRequest.EventCode)
         {
-            ProcessNetworkAnchorCreation((string)jsonData);
+            DisconnectFromServiceRequest result = JsonUtility.FromJson<DisconnectFromServiceRequest>((string)jsonData);
+            ProcessDisconnectFromServiceRequest(result);
         }
 
-        if (eventCode == SharedAnchorRequestEventCode)
+        if (eventCode == ConnectToServiceResponse.EventCode)
         {
-            ProcessGetSharedNetworkAnchorRequest((string)jsonData);
+            ConnectToServiceResponse result = JsonUtility.FromJson<ConnectToServiceResponse>((string)jsonData);
+            _connectedPlayers = result.ConnectedPlayerIds;
+            _connectToServiceResponseCompletionSource?.TrySetResult(result);
         }
 
-        if (eventCode == GetHostCoordinatesRequestEventCode)
+        if (eventCode == GetRemoteCoordinatesRequest.EventCode)
         {
-            if (_debug)
-                Debug.Log("Received get host coordinates request");
-
-            ProcessDownloadPlayerCoordinatesRequest((string)jsonData);
-        }
-        #endregion
-    }
-
-    //Client Requests Logic
-    public async Task<SharedAnchorResponse> RequestSharedNetworkAnchor()
-    {
-        _sharedAnchorRequestCompletionSource = new TaskCompletionSource<SharedAnchorResponse>();
-
-        var genericCoordinates = GenericCoordinateProvider.RequestCoordinateReferences(true);
-
-        while (genericCoordinates.Status != TaskStatus.RanToCompletion)
-            await Task.Delay(100);
-
-        if (genericCoordinates.IsCompleted || genericCoordinates.Result == null)
-        {
-            Debug.LogError("Generic coordinates could not be found.");
-            _sharedAnchorRequestCompletionSource.TrySetResult(new SharedAnchorResponse()
-                {ResponseCode = ResultCode.FAILED});
-
-            return _sharedAnchorRequestCompletionSource.Task.Result;
+            GetRemoteCoordinatesRequest result = JsonUtility.FromJson<GetRemoteCoordinatesRequest>((string)jsonData);
+            ProcessRemoteCoordinatesRequest(result);
         }
 
-        var playerReferenceCoordinates = new PlayerPcfReference()
-        { PlayerId = _localPlayerId, CoordinateReferences = genericCoordinates.Result };
-
-        _localPcfReferences = playerReferenceCoordinates;
-
-        SendNetworkEvent(SharedAnchorRequestEventCode, JsonUtility.ToJson(playerReferenceCoordinates), new int[] { -1 });
-
-        while (!_sharedAnchorRequestCompletionSource.Task.IsCompleted)
-            await Task.Delay(100);
-
-        return _sharedAnchorRequestCompletionSource.Task.Result;
-    }
-
-    public async Task<UploadCoordinatesResponse> RequestUploadCoordinates()
-    {
-        _uploadCoordinatesCompletionSource = new TaskCompletionSource<UploadCoordinatesResponse>();
-        var genericCoordinates = GenericCoordinateProvider.RequestCoordinateReferences(true);
-
-        while (genericCoordinates.Status != TaskStatus.RanToCompletion)
-            await Task.Delay(100);
-
-
-        if (genericCoordinates.IsCompleted || genericCoordinates.Result == null)
+        if (eventCode == GetRemoteCoordinatesResponse.EventCode)
         {
-            Debug.LogError("Generic coordinates could not be found.");
-            _uploadCoordinatesCompletionSource.TrySetResult(new UploadCoordinatesResponse()
-                { ResponseCode = ResultCode.FAILED });
-
-            return _uploadCoordinatesCompletionSource.Task.Result;
-        }
-
-        _localPcfReferences = new PlayerPcfReference() { PlayerId = _localPlayerId, CoordinateReferences = genericCoordinates.Result };
-
-        SendNetworkEvent(UploadCoordinatesRequestEventCode, JsonUtility.ToJson(_localPcfReferences), new int[] { -1 });
-
-        while (!_uploadCoordinatesCompletionSource.Task.IsCompleted)
-            await Task.Delay(100);
-
-        return _uploadCoordinatesCompletionSource.Task.Result;
-    }
-
-    public async Task<CreateAnchorResponse> RequestCreateNetworkAnchor(NetworkAnchor networkAnchor)
-    {
-        _createNetworkAnchorCompletionSource = new TaskCompletionSource<CreateAnchorResponse>();
-
-        SendNetworkEvent(CreateAnchorRequestEventCode, JsonUtility.ToJson(networkAnchor), new int[1] { -1 });
-
-        while (!_createNetworkAnchorCompletionSource.Task.IsCompleted)
-            await Task.Delay(100);
-
-        return _createNetworkAnchorCompletionSource.Task.Result;
-    }
-
-    public async Task<GetHostCoordinatesResponse> RequestDownloadRemoteCoordinates(string targetPlayer = "")
-    {
-        _downloadHostCoordinatesCompletionSource = new TaskCompletionSource<GetHostCoordinatesResponse>();
-
-        var request = new DownloadRemoteCoordinatesRequest() {SenderId = _localPlayerId, TargetId = targetPlayer};
-        SendNetworkEvent(GetHostCoordinatesRequestEventCode, JsonUtility.ToJson(request), new int[1] { -1 });
-
-        while (!_downloadHostCoordinatesCompletionSource.Task.IsCompleted)
-            await Task.Delay(100);
-
-        return _downloadHostCoordinatesCompletionSource.Task.Result;
-    }
-
-    public async Task<HasNetworkAnchorResponse> RequestHasNetworkAnchor(string targetPlayer = "")
-    {
-        _hasNetworkAnchorRequestCompletionSource = new TaskCompletionSource<HasNetworkAnchorResponse>();
-
-        var request = new HasNetworkAnchorRequest() { SenderId = _localPlayerId, TargetId = targetPlayer };
-        SendNetworkEvent(HasNetworkAnchorRequest.GetHostCoordinatesRequestEventCode, JsonUtility.ToJson(request), new int[1] { -1 });
-
-        while (!_hasNetworkAnchorRequestCompletionSource.Task.IsCompleted)
-            await Task.Delay(100);
-
-        return _hasNetworkAnchorRequestCompletionSource.Task.Result;
-    }
-
-    //End
-
-    //Server Responses Logic
-    private void ProcessCoordinatesUpload(string playerCoordinatesJson)
-    {
-        var playerCoordinates = JsonUtility.FromJson(playerCoordinatesJson, typeof(PlayerPcfReference)) as PlayerPcfReference;
-        if (playerCoordinates == null)
-        {
-            Debug.LogError($"A player has uploaded invalid data as coordinates {playerCoordinatesJson}");
-           var result = JsonUtility.ToJson(new UploadCoordinatesResponse()
-                { ResponseCode = ResultCode.MISSING_INFORMATION });
-
-            SendNetworkEvent(UploadCoordinatesResponse.EventCode, result, new int[] { int.Parse(playerCoordinates.PlayerId) });
-
-        }
-        else
-        {
-            AddOrUpdatePlayerCoordinates(playerCoordinates);
-
-            playerCoordinateReferences.Add(playerCoordinates);
-             var result = JsonUtility.ToJson(new UploadCoordinatesResponse()
-                { ResponseCode = ResultCode.SUCCESS });
-
-            SendNetworkEvent(UploadCoordinatesResponse.EventCode, result, new int[] { int.Parse(playerCoordinates.PlayerId) });
-        }
-    }
-
-    private void AddOrUpdatePlayerCoordinates(PlayerPcfReference playerCoordinates)
-    {
-        string result = "";
-        //Find the existing player or create a new one
-        for (int i = 0; i < playerCoordinateReferences.Count; i++)
-        {
-            if (playerCoordinateReferences[i].PlayerId == playerCoordinates.PlayerId)
-            {
-                playerCoordinateReferences[i].CoordinateReferences = playerCoordinates.CoordinateReferences;
-                break;
-            }
-        }
-
-        if (string.IsNullOrEmpty(result))
-        {
-            playerCoordinateReferences.Add(playerCoordinates);
-    
-        }
-    }
-
-    private void ProcessNetworkAnchorCreation(string networkAnchorJson)
-    {
-        var targetAnchor = JsonUtility.FromJson(networkAnchorJson, typeof(NetworkAnchor)) as NetworkAnchor;
-
-        bool isValid = !string.IsNullOrEmpty(targetAnchor.AnchorId)
-                       && targetAnchor.LinkedCoordinate != null
-                       && !string.IsNullOrEmpty(targetAnchor.LinkedCoordinate.CoordinateId);
-
-        PlayerPcfReference playerCoordinates = null;
-        for (int i = 0; i < playerCoordinateReferences.Count; i++)
-        {
-            if (playerCoordinateReferences[i].PlayerId == targetAnchor.OwnerId)
-            {
-                playerCoordinates = playerCoordinateReferences[i];
-            }
-        }
-
-        if (playerCoordinates != null && !playerCoordinates.NetworkAnchorIsValid)
-        {
-            if (!isValid)
-            {
-                string result = JsonUtility.ToJson(new CreateAnchorResponse()
-                { ResponseCode = ResultCode.MISSING_INFORMATION, NetworkAnchor = targetAnchor });
-
-                SendNetworkEvent(CreateAnchorResponse.EventCode, result, new[] { int.Parse(targetAnchor.OwnerId) });
-            }
-            else
-            {
-                playerCoordinates.NetworkAnchor = targetAnchor;
-
-                string result = JsonUtility.ToJson(new CreateAnchorResponse()
-                { ResponseCode = ResultCode.SUCCESS, NetworkAnchor = targetAnchor });
-
-                SendNetworkEvent(CreateAnchorResponse.EventCode, result, new int[0]);
-            }
-        }
-        else
-        {
-
-            string result = JsonUtility.ToJson(new CreateAnchorResponse()
-            { ResponseCode = isValid ? ResultCode.EXISTS : ResultCode.FAILED, NetworkAnchor = targetAnchor });
-
-            SendNetworkEvent(CreateAnchorResponse.EventCode, result, new[] { int.Parse(targetAnchor.OwnerId) });
-        }
-    }
-
-    private void ProcessGetSharedNetworkAnchorRequest(string playerReferenceCoordinates)
-    {
-        GenericCoordinateReference coordinateReference = null;
-        PlayerPcfReference matchedPlayerCoordinates = null;
-
-        PlayerPcfReference playerReference = JsonUtility.FromJson<PlayerPcfReference>(playerReferenceCoordinates) as PlayerPcfReference;
-
-        //If we do not have any uploaded coordinates return false
-        if (playerCoordinateReferences.Count == 0)
-        {
-            string anchorResultJson = JsonUtility.ToJson(new SharedAnchorResponse() { NetworkAnchor = null, ResponseCode = ResultCode.MISSING_COORDINATES });
-            SendNetworkEvent(SharedAnchorResponse.EventCode, anchorResultJson, new[] { int.Parse(playerReference.PlayerId) });
-            return;
-        }
-
-        //If we do not have an active anchor return false
-        if (!playerCoordinateReferences.Exists(x=>x.NetworkAnchorIsValid==true))
-        {
-            string anchorResultJson = JsonUtility.ToJson(new SharedAnchorResponse() { NetworkAnchor = null, ResponseCode = ResultCode.MISSING_ANCHOR });
-            SendNetworkEvent(SharedAnchorResponse.EventCode, anchorResultJson, new[] { int.Parse(playerReference.PlayerId) });
-            return;
-        }
-
-        //We add or update the current players coordinates
-        AddOrUpdatePlayerCoordinates(playerReference);
-        var pcfIds = playerReference.CoordinateReferences.Select(x => x.CoordinateId).ToList();
-
-        for (int i = 0; i < playerCoordinateReferences.Count; i++)
-        {
-            matchedPlayerCoordinates = playerCoordinateReferences[i];
-            var coordinateReferences = playerCoordinateReferences[i].CoordinateReferences;
-            for (int j = 0; j < coordinateReferences.Count; j++)
-            {
-                if (pcfIds.Contains(coordinateReferences[j].CoordinateId))
-                {
-                    coordinateReference = coordinateReferences[j];
-                    break;
-                }
-            }
-        }
-
-        if (coordinateReference == null)
-        {
-            // TODO: Network call to the players to get new anchors and try again?
-            string anchorResultJson = JsonUtility.ToJson(new SharedAnchorResponse() { NetworkAnchor = null, ResponseCode = ResultCode.MISSING_SHARED_COORDINATE });
-            SendNetworkEvent(SharedAnchorResponse.EventCode, anchorResultJson, new[] { int.Parse(playerReference.PlayerId) });
-        }
-        else
-        {
-            if (_debug)
-                Debug.Log($"Player: {playerReference.PlayerId} coordinates with Player:{matchedPlayerCoordinates.PlayerId}. Original Network Anchor {matchedPlayerCoordinates.NetworkAnchor}");
-
-            var resultAnchor = new NetworkAnchor(matchedPlayerCoordinates.NetworkAnchor.AnchorId, coordinateReference, matchedPlayerCoordinates.NetworkAnchor.GetWorldPosition(), matchedPlayerCoordinates.NetworkAnchor.GetWorldRotation());
-
-            if (_debug)
-                Debug.Log("Returning Network Anchor to player " + JsonUtility.ToJson(resultAnchor));
-
-            string anchorResultJson = JsonUtility.ToJson(new SharedAnchorResponse() { NetworkAnchor = resultAnchor, ResponseCode = ResultCode.SUCCESS });
-            SendNetworkEvent(SharedAnchorResponse.EventCode, anchorResultJson, new[] { int.Parse(playerReference.PlayerId) });
+            GetRemoteCoordinatesResponse result = JsonUtility.FromJson<GetRemoteCoordinatesResponse>((string)jsonData);
+            _getRemoteCoordinatesResponseCompletionSource?.TrySetResult(result);
         }
 
     }
-
-    private void ProcessDownloadPlayerCoordinatesRequest(string jsonRequest)
-    {
-        DownloadRemoteCoordinatesRequest request = JsonUtility.FromJson<DownloadRemoteCoordinatesRequest>(jsonRequest);
-
-        if (playerCoordinateReferences.Count > 0)
-        {
-            PlayerPcfReference targetPlayerReference = null;
-            if (request.TargetId == "")
-            {
-                targetPlayerReference = playerCoordinateReferences[0];
-            }
-            else
-            {
-                targetPlayerReference = playerCoordinateReferences.FirstOrDefault(x => x.PlayerId == request.TargetId);
-                if (_debug)
-                    Debug.Log($"Search for anchors from player {request.TargetId} Returned : {targetPlayerReference !=null}");
-                 
-            }
-
-            if (targetPlayerReference != null)
-            {
-                var resultData = new GetHostCoordinatesResponse()
-                {
-                    PlayerPcfReference = targetPlayerReference,
-                    ResponseCode = ResultCode.SUCCESS
-                };
-
-                if (_debug)
-                    Debug.Log("Getting network anchors was successful");
-
-                SendNetworkEvent(GetHostCoordinatesResponse.EventCode, JsonUtility.ToJson(resultData), new[] { int.Parse(request.SenderId) });
-            }
-          
-        }
-        else
-        {
-            var resultData = new GetHostCoordinatesResponse()
-            {
-                ResponseCode = ResultCode.MISSING_COORDINATES
-            };
-
-            if (_debug)
-                Debug.Log("Could not get network anchors, ResultCode.MISSING_COORDINATES");
-
-            SendNetworkEvent(GetHostCoordinatesResponse.EventCode, JsonUtility.ToJson(resultData), new[] { int.Parse(request.TargetId) });
-        }
-    }
-
-    private void ProcessHasNetworkAnchorRequest(string jsonRequest)
-    {
-        DownloadRemoteCoordinatesRequest request = JsonUtility.FromJson<DownloadRemoteCoordinatesRequest>(jsonRequest);
-
-        if (playerCoordinateReferences.Count > 0)
-        {
-            PlayerPcfReference targetPlayerReference = null;
-            if (request.TargetId == "")
-            {
-                targetPlayerReference = playerCoordinateReferences[0];
-            }
-            else
-            {
-                targetPlayerReference = playerCoordinateReferences.FirstOrDefault(x => x.PlayerId == request.TargetId);
-                if (_debug)
-                    Debug.Log($"Search for anchors from player {request.TargetId} Returned : {targetPlayerReference != null}");
-
-            }
-
-            if (targetPlayerReference != null)
-            {
-                var resultData = new GetHostCoordinatesResponse()
-                {
-                    PlayerPcfReference = targetPlayerReference,
-                    ResponseCode = ResultCode.SUCCESS
-                };
-
-                if (_debug)
-                    Debug.Log("Getting network anchors was successful");
-
-                SendNetworkEvent(GetHostCoordinatesResponse.EventCode, JsonUtility.ToJson(resultData), new[] { int.Parse(request.SenderId) });
-            }
-
-        }
-        else
-        {
-            var resultData = new GetHostCoordinatesResponse()
-            {
-                ResponseCode = ResultCode.MISSING_COORDINATES
-            };
-
-            if (_debug)
-                Debug.Log("Could not get network anchors, ResultCode.MISSING_COORDINATES");
-
-            SendNetworkEvent(GetHostCoordinatesResponse.EventCode, JsonUtility.ToJson(resultData), new[] { int.Parse(request.TargetId) });
-        }
-    }
-    //End
-
-
 
     /// <summary>
     /// Function used to send the network events to the client and server
@@ -548,6 +166,487 @@ public class NetworkAnchorService : MonoBehaviour
     private void SendNetworkEvent(byte networkEventCode, string jsonData, int[] players)
     {
         OnBroadcastNetworkEvent?.Invoke(networkEventCode, jsonData, players);
+    }
+
+    #region GetNetworkAnchor
+    public class GetNetworkAnchorRequest
+    {
+        public const byte EventCode = 101;
+        public int SenderId;
+    }
+
+    public class GetNetworkAnchorResponse
+    {
+        public const byte EventCode = 102;
+        public ResultCode ResultCode;
+        public int SenderId;
+        public NetworkAnchor NetworkAnchor;
+        public List<GenericCoordinateReference> GenericCoordinates = new List<GenericCoordinateReference>();
+    }
+
+    public class GetNetworkAnchorResult
+    {
+        public ResultCode ResultCode;
+        public NetworkAnchor NetworkAnchor;
+    }
+
+    TaskCompletionSource<GetNetworkAnchorResponse> _getNetworkAnchorResponseCompletionSource;
+
+    public async Task<GetNetworkAnchorResult> RequestNetworkAnchor()
+    {
+        if (_verboseLogging)
+            Debug.Log("Requesting the remote Network Anchor");
+
+
+        var genericCoordinatesRequest = _genericCoordinateProvider.RequestCoordinateReferences(true);
+         // var ct = new CancellationTokenSource(RequestTimeoutMs);
+         //   ct.Token.Register(() => _getNetworkAnchorResponseCompletionSource.TrySetCanceled());
+
+
+         await genericCoordinatesRequest;
+
+        if (_verboseLogging)
+            Debug.Log("Local coordinates processed");
+
+        if (!genericCoordinatesRequest.IsCompleted || genericCoordinatesRequest.Result == null)
+        {
+            Debug.LogError("Generic coordinates could not be found.");
+
+            return (new GetNetworkAnchorResult()
+            { ResultCode = ResultCode.FAILED });
+        }
+
+        _genericCoordinateReferences = genericCoordinatesRequest.Result;
+
+        for (int i = 0; i < _connectedPlayers.Count; i++)
+        {
+            if (_connectedPlayers[i] == _localPlayerId)
+                continue;
+
+            var clientRequest = new GetNetworkAnchorRequest()
+            { SenderId = _localPlayerId };
+            _getNetworkAnchorResponseCompletionSource = new TaskCompletionSource<GetNetworkAnchorResponse>();
+           
+            if (_verboseLogging)
+                Debug.Log("Requesting network anchor from player {ID: " + _connectedPlayers[i]+"}");
+            
+            SendNetworkEvent(GetNetworkAnchorRequest.EventCode, JsonUtility.ToJson(clientRequest), new int[] { _connectedPlayers[i] });
+
+            var content =
+                await TaskWithTimeout(_getNetworkAnchorResponseCompletionSource.Task, TimeSpan.FromSeconds(2));
+
+            if (content==null)
+            {
+                _getNetworkAnchorResponseCompletionSource.TrySetResult(null);
+                if(_verboseLogging)
+                 Debug.Log("Did not get a response in time, connection failed. Continuing...");
+                continue;
+            }
+
+
+            if (_getNetworkAnchorResponseCompletionSource.Task.Result != null
+                && _getNetworkAnchorResponseCompletionSource.Task.Result.ResultCode == ResultCode.SUCCESS)
+            {
+                var remoteCoordinates = _getNetworkAnchorResponseCompletionSource.Task.Result.GenericCoordinates;
+                var remoteNetworkAnchor = _getNetworkAnchorResponseCompletionSource.Task.Result.NetworkAnchor;
+                
+                if(_verboseLogging)
+                    Debug.Log("Received network anchor from player {ID : " + _connectedPlayers[i]);
+
+                if (TryGetNetworkAnchor(_genericCoordinateReferences, remoteCoordinates, remoteNetworkAnchor,
+                    out NetworkAnchor localNetworkAnchor))
+                {
+                    if (_verboseLogging)
+                        Debug.Log("Remote anchor is valid and has been located locally.");
+
+                    LocalNetworkAnchor = localNetworkAnchor;
+                    return (new GetNetworkAnchorResult()
+                        { ResultCode = ResultCode.SUCCESS, NetworkAnchor = LocalNetworkAnchor });
+                }
+                else
+                {
+                    if (_verboseLogging)
+                        Debug.Log("Local player did not share coordinates with the remote player.");
+                }
+            }
+        }
+
+        if (_verboseLogging)
+            Debug.Log("Network Anchor could not be found / does not exist.");
+
+        return (new GetNetworkAnchorResult()
+        { ResultCode = ResultCode.NO_MATCHES_FOUND, NetworkAnchor = LocalNetworkAnchor });
+
+    }
+
+    private void ProcessNetworkAnchorRequest(GetNetworkAnchorRequest request)
+    {
+        GetNetworkAnchorResponse response = null;
+        if (LocalNetworkAnchor == null || string.IsNullOrEmpty(LocalNetworkAnchor.AnchorId)
+            && _genericCoordinateReferences == null || _genericCoordinateReferences.Count == 0)
+        {
+            response = new GetNetworkAnchorResponse()
+            { ResultCode = ResultCode.FAILED,GenericCoordinates = _genericCoordinateReferences,  SenderId = _localPlayerId };
+            OnBroadcastNetworkEvent?.Invoke(GetNetworkAnchorResponse.EventCode, JsonUtility.ToJson(response), new[] { request.SenderId });
+       
+            if (_verboseLogging)
+                Debug.Log("A player has requested your coordinates and network anchor, but the you have not localized." );
+
+            return;
+        }
+
+        response = new GetNetworkAnchorResponse()
+        { ResultCode = ResultCode.SUCCESS, GenericCoordinates = _genericCoordinateReferences, NetworkAnchor = LocalNetworkAnchor, SenderId = _localPlayerId };
+        
+        if (_verboseLogging)
+            Debug.Log("Sending local coordinates and network anchor to remote player.");
+
+        OnBroadcastNetworkEvent?.Invoke(GetNetworkAnchorResponse.EventCode, JsonUtility.ToJson(response), new[] { request.SenderId });
+
+    }
+
+    #endregion
+
+    #region CreateNetworkAnchor
+
+    public class CreateNetworkAnchorRequest
+    {
+        public const byte EventCode = 103;
+        public int SenderId;
+        public NetworkAnchor NetworkAnchor;
+        public List<GenericCoordinateReference> GenericCoordinates = new List<GenericCoordinateReference>();
+    }
+
+    public class CreateNetworkAnchorResponse
+    {
+        public const byte EventCode = 104;
+        public ResultCode ResultCode;
+        public int SenderId;
+    }
+
+    public class CreateNetworkAnchorResult
+    {
+        public ResultCode ResultCode;
+        public NetworkAnchor NetworkAnchor;
+    }
+
+    TaskCompletionSource<CreateNetworkAnchorResponse> _createNetworkAnchorResponseCompletionSource;
+
+    public async Task<CreateNetworkAnchorResult> RequestCreateNetworkAnchor(string id, Vector3 position, Quaternion rotation)
+    {
+
+        if (_verboseLogging)
+            Debug.Log("Requesting to create a new Network Anchor.");
+
+        _createNetworkAnchorResponseCompletionSource = new TaskCompletionSource<CreateNetworkAnchorResponse>();
+
+        var genericCoordinatesRequest = _genericCoordinateProvider.RequestCoordinateReferences(true);
+
+        await genericCoordinatesRequest;
+
+        if (!genericCoordinatesRequest.IsCompleted || genericCoordinatesRequest.Result == null)
+        {
+            if (_verboseLogging)
+                Debug.LogError("Generic coordinates could not be found.");
+
+            _createNetworkAnchorResponseCompletionSource.SetCanceled();
+            return (new CreateNetworkAnchorResult()
+            { ResultCode = ResultCode.FAILED });
+        }
+
+        _genericCoordinateReferences = genericCoordinatesRequest.Result;
+
+        var newNetworkAnchor = new NetworkAnchor(id, _genericCoordinateReferences[0], position, rotation);
+
+        var createAnchorRequest = new CreateNetworkAnchorRequest()
+        { GenericCoordinates = _genericCoordinateReferences, NetworkAnchor = newNetworkAnchor, SenderId = _localPlayerId };
+
+        SendNetworkEvent(CreateNetworkAnchorRequest.EventCode, JsonUtility.ToJson(createAnchorRequest), new int[] { (int)SendCode.OTHERS});
+        if (_verboseLogging)
+            Debug.Log("Notifying others about the new Network Anchor.");
+
+        var content =
+            await TaskWithTimeout(_createNetworkAnchorResponseCompletionSource.Task, TimeSpan.FromSeconds(2));
+
+        if (content == null)
+        {
+            Debug.LogError("Could not get coordinates");
+            _createNetworkAnchorResponseCompletionSource.SetCanceled();
+            return (new CreateNetworkAnchorResult()
+                { ResultCode = ResultCode.FAILED });
+        }
+
+        //TODO: change logic to check if the request has been sent successfully rather than making every client respond.
+        var result = new CreateNetworkAnchorResult()
+        {
+            NetworkAnchor = newNetworkAnchor,
+            ResultCode = _createNetworkAnchorResponseCompletionSource.Task.Result.ResultCode
+        };
+
+        return result;
+    }
+
+    private void ProcessCreateNetworkAnchorRequest(CreateNetworkAnchorRequest request)
+    {
+        CreateNetworkAnchorResponse response = null;
+        if (request.NetworkAnchor == null || string.IsNullOrEmpty(request.NetworkAnchor.AnchorId)
+            && request.GenericCoordinates == null || request.GenericCoordinates.Count == 0)
+        {
+            response = new CreateNetworkAnchorResponse()
+            { ResultCode = ResultCode.FAILED, SenderId = _localPlayerId };
+
+            OnBroadcastNetworkEvent?.Invoke(CreateNetworkAnchorResponse.EventCode, JsonUtility.ToJson(response), new[] { request.SenderId });
+            return;
+        }
+
+        if (TryGetNetworkAnchor(_genericCoordinateReferences, request.GenericCoordinates, request.NetworkAnchor,
+            out NetworkAnchor localNetworkAnchor))
+        {
+            LocalNetworkAnchor = localNetworkAnchor;
+            response = new CreateNetworkAnchorResponse()
+            { ResultCode = ResultCode.SUCCESS, SenderId = _localPlayerId };
+        }
+        else
+        {
+            response = new CreateNetworkAnchorResponse()
+            { ResultCode = ResultCode.FAILED, SenderId = _localPlayerId };
+        }
+
+        OnBroadcastNetworkEvent?.Invoke(CreateNetworkAnchorResponse.EventCode, JsonUtility.ToJson(response), new[] { request.SenderId });
+    }
+
+    #endregion
+
+    #region ConnectToService
+
+    public class ConnectToServiceRequest
+    {
+        public const byte EventCode = 105;
+        public int SenderId;
+    }
+
+    public class DisconnectFromServiceRequest
+    {
+        public const byte EventCode = 106;
+        public int SenderId;
+    }
+
+    public class ConnectToServiceResponse
+    {
+        public const byte EventCode = 107;
+        public List<int> ConnectedPlayerIds = new List<int>();
+        public ResultCode ResultCode;
+        public int SenderId;
+    }
+
+    public class ConnectToServiceResult
+    {
+        public ResultCode ResultCode;
+    }
+
+    TaskCompletionSource<ConnectToServiceResponse> _connectToServiceResponseCompletionSource;
+
+    public async Task<ConnectToServiceResult> RequestConnectToService(int playerId, IGenericCoordinateProvider coordinateProvider )
+    {
+        _connectToServiceResponseCompletionSource = new TaskCompletionSource<ConnectToServiceResponse>();
+        if (_verboseLogging)
+            Debug.Log("Connecting...");
+
+        if (coordinateProvider == null)
+        {
+            Debug.LogError("Cannot connected! No Coordinate Provider was given!");
+            _connectToServiceResponseCompletionSource.SetCanceled();
+            return new ConnectToServiceResult() {ResultCode = ResultCode.FAILED};
+        }
+
+        _genericCoordinateProvider = coordinateProvider;
+        _genericCoordinateProvider.InitializeGenericCoordinates();
+
+        _localPlayerId = playerId;
+        var request = new ConnectToServiceRequest() { SenderId = _localPlayerId };
+
+        SendNetworkEvent(ConnectToServiceRequest.EventCode, JsonUtility.ToJson(request), new int[] { (int)SendCode.MASTER_CLIENT });
+        var content =
+            await TaskWithTimeout(_connectToServiceResponseCompletionSource.Task, TimeSpan.FromSeconds(3));
+        if (content == null)
+        {
+            Debug.LogError("Connection failed, host did not respond!");
+            _connectToServiceResponseCompletionSource.SetCanceled();
+            return new ConnectToServiceResult() { ResultCode = ResultCode.FAILED };
+        }
+
+        if (_connectToServiceResponseCompletionSource.Task.IsCanceled || _connectToServiceResponseCompletionSource.Task.IsFaulted)
+        {
+            Debug.LogError($"Connection failed, the task was {_connectToServiceResponseCompletionSource.Task.Status}!");
+            _connectToServiceResponseCompletionSource.SetCanceled();
+            return new ConnectToServiceResult() { ResultCode = ResultCode.FAILED };
+        }
+
+        var taskResult = _connectToServiceResponseCompletionSource.Task.Result;
+        IsConnected = taskResult.ResultCode == ResultCode.SUCCESS;
+
+        if (_verboseLogging)
+            Debug.Log("Connection to Network Anchors Successful");
+
+        var result = new ConnectToServiceResult()
+        {
+            ResultCode = taskResult.ResultCode
+        };
+        return result;
+    }
+
+    public void DisconnectFromService(int playerId = -1)
+    {
+        if (IsConnected)
+        {
+            if (playerId == -1)
+                playerId = _localPlayerId;
+
+            var request = new DisconnectFromServiceRequest() { SenderId = playerId };
+            SendNetworkEvent(DisconnectFromServiceRequest.EventCode, JsonUtility.ToJson(request), new int[] { (int)SendCode.MASTER_CLIENT});
+            _genericCoordinateProvider.DisableGenericCoordinates();
+        }
+    }
+
+    private void ProcessConnectToServiceRequest(ConnectToServiceRequest request)
+    {
+        if (!_connectedPlayers.Contains(request.SenderId))
+            _connectedPlayers.Add(request.SenderId);
+
+        var response = new ConnectToServiceResponse()
+        { ResultCode = ResultCode.SUCCESS, ConnectedPlayerIds = _connectedPlayers, SenderId = _localPlayerId };
+
+        OnBroadcastNetworkEvent?.Invoke(ConnectToServiceResponse.EventCode, JsonUtility.ToJson(response), new[] {(int)SendCode.ALL });
+    }
+
+    private void ProcessDisconnectFromServiceRequest(DisconnectFromServiceRequest request)
+    {
+        if (_connectedPlayers.Contains(request.SenderId))
+            _connectedPlayers.Remove(request.SenderId);
+
+        var response = new ConnectToServiceResponse()
+        { ResultCode = ResultCode.SUCCESS, ConnectedPlayerIds = _connectedPlayers, SenderId = _localPlayerId };
+
+        OnBroadcastNetworkEvent?.Invoke(ConnectToServiceResponse.EventCode, JsonUtility.ToJson(response), new[] { (int)SendCode.ALL });
+    }
+
+    #endregion
+
+    #region GetRemoteCoordinate
+    public class GetRemoteCoordinatesRequest
+    {
+        public const byte EventCode = 108;
+        public int SenderId;
+    }
+
+    public class GetRemoteCoordinatesResponse
+    {
+        public const byte EventCode = 109;
+        public ResultCode ResultCode;
+        public int SenderId;
+        public List<GenericCoordinateReference> GenericCoordinates = new List<GenericCoordinateReference>();
+    }
+
+    public class GetRemoteCoordinatesResult
+    {
+        public ResultCode ResultCode;
+        public List<GenericCoordinateReference> GenericCoordinates = new List<GenericCoordinateReference>();
+    }
+
+    TaskCompletionSource<GetRemoteCoordinatesResponse> _getRemoteCoordinatesResponseCompletionSource;
+
+    public async Task<GetRemoteCoordinatesResult> RequestRemoteCoordinates()
+    {
+
+        for (int i = 0; i < _connectedPlayers.Count; i++)
+        {
+            if (_connectedPlayers[i] == _localPlayerId)
+                continue;
+
+
+            _getRemoteCoordinatesResponseCompletionSource = new TaskCompletionSource<GetRemoteCoordinatesResponse>();
+            
+            var clientRequest = new GetRemoteCoordinatesRequest()
+            { SenderId = _localPlayerId };
+
+            SendNetworkEvent(GetRemoteCoordinatesRequest.EventCode, JsonUtility.ToJson(clientRequest), new int[] { _connectedPlayers[i] });
+
+            using (var timeoutCancellationTokenSource = new CancellationTokenSource())
+            {
+                var completedTask = await Task.WhenAny(_getRemoteCoordinatesResponseCompletionSource.Task, Task.Delay(RequestTimeoutMs, timeoutCancellationTokenSource.Token));
+                if (completedTask != _getRemoteCoordinatesResponseCompletionSource.Task)
+                {
+                    continue;
+                }
+
+                timeoutCancellationTokenSource.Cancel();
+                await _getRemoteCoordinatesResponseCompletionSource.Task;
+            }
+
+
+            if (_getRemoteCoordinatesResponseCompletionSource.Task.Result != null
+                && _getRemoteCoordinatesResponseCompletionSource.Task.Result.ResultCode == ResultCode.SUCCESS)
+            {
+                _genericCoordinateReferences = _getRemoteCoordinatesResponseCompletionSource.Task.Result.GenericCoordinates;
+                return (new GetRemoteCoordinatesResult()
+                    { ResultCode = ResultCode.SUCCESS, GenericCoordinates = _genericCoordinateReferences });
+            }
+        }
+
+        return (new GetRemoteCoordinatesResult()
+        { ResultCode = ResultCode.FAILED});
+
+    }
+
+    private void ProcessRemoteCoordinatesRequest(GetRemoteCoordinatesRequest request)
+    {
+        GetRemoteCoordinatesResponse response = null;
+        if ( _genericCoordinateReferences == null || _genericCoordinateReferences.Count == 0)
+        {
+            response = new GetRemoteCoordinatesResponse()
+            { ResultCode = ResultCode.FAILED, GenericCoordinates = _genericCoordinateReferences, SenderId = _localPlayerId };
+
+            OnBroadcastNetworkEvent?.Invoke(GetRemoteCoordinatesResponse.EventCode, JsonUtility.ToJson(response), new[] { request.SenderId });
+            return;
+        }
+
+        response = new GetRemoteCoordinatesResponse()
+        { ResultCode = ResultCode.SUCCESS, GenericCoordinates = _genericCoordinateReferences, SenderId = _localPlayerId };
+
+        OnBroadcastNetworkEvent?.Invoke(GetRemoteCoordinatesResponse.EventCode, JsonUtility.ToJson(response), new[] { request.SenderId });
+
+    }
+
+    #endregion
+
+    public static Task<TResult> TaskWithTimeout<TResult>(Task<TResult> task, TimeSpan timeout)
+    {
+        var timeoutTask = Task.Delay(timeout).ContinueWith(_ => default(TResult), TaskContinuationOptions.ExecuteSynchronously);
+        return Task.WhenAny(task, timeoutTask).Unwrap();
+    }
+
+    private static bool TryGetNetworkAnchor(List<GenericCoordinateReference> localCoordinateReferences,
+        List<GenericCoordinateReference> remoteCoordinates,
+        NetworkAnchor remoteNetworkAnchor, out NetworkAnchor localNetworkAnchor)
+    {
+
+        localNetworkAnchor = null;
+        var sharedCoordinate = localCoordinateReferences.FirstOrDefault(x =>
+            remoteCoordinates.Any(j => j.CoordinateId == x.CoordinateId));
+
+
+        if (sharedCoordinate != null)
+        {
+            var remoteSharedCoordinate = remoteCoordinates.Find(x => x.CoordinateId == sharedCoordinate.CoordinateId);
+
+            localNetworkAnchor = new NetworkAnchor(remoteNetworkAnchor.AnchorId, sharedCoordinate, remoteSharedCoordinate,
+                remoteNetworkAnchor.GetWorldPosition(remoteSharedCoordinate),
+                remoteNetworkAnchor.GetWorldRotation(remoteSharedCoordinate));
+            return true;
+        }
+
+        return false;
+
     }
 
 }

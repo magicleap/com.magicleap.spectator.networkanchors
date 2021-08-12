@@ -50,6 +50,13 @@ public class NetworkAnchor
         SetRelativeRotationPosition(referenceCoordinate, worldRotation, worldPosition);
     }
 
+    public NetworkAnchor(string id, GenericCoordinateReference localCoordinate, GenericCoordinateReference remoteCoordinate, Vector3 remoteWorldPosition, Quaternion remoteWorldRotation)
+    {
+        AnchorId = id;
+        LinkedCoordinate = localCoordinate;
+        SetRelativeRotationPosition(remoteCoordinate, remoteWorldRotation, remoteWorldPosition);
+    }
+
     private void SetRelativeRotationPosition(GenericCoordinateReference referenceCoordinate, Quaternion worldRotation, Vector3 worldPosition)
     {
         // Relative Orientation can be computed independent of Position

@@ -10,6 +10,7 @@ using UnityEngine;
 public class StandaloneCoordinateProvider : MonoBehaviour, IGenericCoordinateProvider
 {
     public NetworkAnchorService NetworkAnchorService;
+    private const int RequestTimeoutMs = 2000;
 
     public void OnValidate()
     {
@@ -21,21 +22,24 @@ public class StandaloneCoordinateProvider : MonoBehaviour, IGenericCoordinatePro
 
     public async Task<List<GenericCoordinateReference>> RequestCoordinateReferences(bool refresh)
     {
-        //Request to download them
+
+      //  Request to download them
         var downloadHostCoordinatesRequest =
-            NetworkAnchorService.RequestDownloadRemoteCoordinates();
+            NetworkAnchorService.RequestRemoteCoordinates();
 
         await Task.Delay(100);
 
-        while (downloadHostCoordinatesRequest.Status == TaskStatus.Running || downloadHostCoordinatesRequest.Status == TaskStatus.WaitingForActivation)
+        if (await Task.WhenAny(downloadHostCoordinatesRequest,
+            Task.Delay(RequestTimeoutMs)) != downloadHostCoordinatesRequest)
         {
-            await Task.Delay(100);
+            Debug.LogError("Could not get coordinates");
+            return new List<GenericCoordinateReference>();
         }
 
         //Return them as our own
-        if (downloadHostCoordinatesRequest.IsCompleted && downloadHostCoordinatesRequest.Result != null)
+        if (downloadHostCoordinatesRequest.IsCompleted && downloadHostCoordinatesRequest.Result != null && downloadHostCoordinatesRequest.Result.GenericCoordinates.Count>0)
         {
-            return downloadHostCoordinatesRequest.Result.PlayerPcfReference.CoordinateReferences;
+            return downloadHostCoordinatesRequest.Result.GenericCoordinates;
         }
         else
         {
