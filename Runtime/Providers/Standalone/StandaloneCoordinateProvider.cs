@@ -11,7 +11,7 @@ public class StandaloneCoordinateProvider : MonoBehaviour, IGenericCoordinatePro
 {
     public NetworkAnchorService NetworkAnchorService;
 
-    public void Reset()
+    public void OnValidate()
     {
         if (NetworkAnchorService == null)
         {
@@ -23,7 +23,7 @@ public class StandaloneCoordinateProvider : MonoBehaviour, IGenericCoordinatePro
     {
         //Request to download them
         var downloadHostCoordinatesRequest =
-            NetworkAnchorService.SendDownloadHostCoordinatesRequest(NetworkAnchorService.PlayerId);
+            NetworkAnchorService.RequestDownloadRemoteCoordinates();
 
         await Task.Delay(100);
 
