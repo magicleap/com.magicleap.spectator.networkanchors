@@ -18,6 +18,7 @@ public class NetworkAnchor
     {
         return referenceCoordinate.Rotation * RelativeRotation;
     }
+
     public Vector3 GetWorldPosition(GenericCoordinateReference referenceCoordinate)
     {
         Matrix4x4 pcfCoordinateSpace = new Matrix4x4();
@@ -31,6 +32,7 @@ public class NetworkAnchor
     {
         return LinkedCoordinate.Rotation * RelativeRotation;
     }
+
     /// <summary>
     /// Gets the anchors last cached world position. This is unreliable as it assumes the player has not lost tracking since the Pcf was created.
     /// </summary>
@@ -48,6 +50,22 @@ public class NetworkAnchor
         AnchorId = id;
         LinkedCoordinate = referenceCoordinate;
         SetRelativeRotationPosition(referenceCoordinate, worldRotation, worldPosition);
+    }
+
+    /// <summary>
+    /// Create a new network anchor based on another player's data by finding the anchor's position relative to a shared anchor.
+    /// </summary>
+    /// <param name="id">The ID of the anchor.</param>
+    /// <param name="localCoordinate">The coordinate that this anchor will be linked to.</param>
+    /// <param name="remoteCoordinate">The same coordinate as the localCoordinate, except from the remote player - This is because the world positions of the coordinates are different.</param>
+    /// <param name="remoteWorldPosition">The position of the anchor based on the remote player.</param>
+    /// <param name="remoteWorldRotation">The rotation of the anchor based on the remote player.</param>
+    public NetworkAnchor(string id, GenericCoordinateReference localCoordinate, GenericCoordinateReference remoteCoordinate, Vector3 remoteWorldPosition, Quaternion remoteWorldRotation)
+    {
+        AnchorId = id;
+        LinkedCoordinate = localCoordinate;
+        //Set the relative position based on the remote player's coordinate and world positions. This is because the relative positing is the same for all players.
+        SetRelativeRotationPosition(remoteCoordinate, remoteWorldRotation, remoteWorldPosition);
     }
 
     private void SetRelativeRotationPosition(GenericCoordinateReference referenceCoordinate, Quaternion worldRotation, Vector3 worldPosition)
@@ -68,5 +86,16 @@ public class NetworkAnchor
         Matrix4x4 pcfCoordinateSpace = Matrix4x4.TRS(referenceCoordinate.Position, referenceCoordinate.Rotation, Vector3.one);
         Vector3 relPosition = Matrix4x4.Inverse(pcfCoordinateSpace).MultiplyPoint3x4(worldPosition);
         RelativePosition = relPosition;
+    }
+
+    /// <summary>
+    /// Checks if the Network Anchor is valid.
+    /// </summary>
+    /// <param name="networkAnchor">The target network anchor</param>
+    /// <returns>Returns true if the network anchor is not null, has an ID, has a linked coordinate, and the linked coordinate id is not null.</returns>
+    public static bool IsValid(NetworkAnchor networkAnchor)
+    {
+        return networkAnchor !=null && !string.IsNullOrEmpty(networkAnchor.AnchorId) && networkAnchor.LinkedCoordinate != null && 
+               !string.IsNullOrEmpty(networkAnchor.LinkedCoordinate.CoordinateId) ;
     }
 }

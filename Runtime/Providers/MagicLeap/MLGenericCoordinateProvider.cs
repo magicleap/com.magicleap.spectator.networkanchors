@@ -17,6 +17,8 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
 
     private TaskCompletionSource<List<GenericCoordinateReference>> _coordinateReferencesCompletionSource;
 
+    private const int RequestTimeoutMs = 2000;
+
     public async Task<List<GenericCoordinateReference>> RequestCoordinateReferences(bool refresh)
     {
 
@@ -25,8 +27,12 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
         _coordinateReferencesCompletionSource = new TaskCompletionSource<List<GenericCoordinateReference>>();
         _getGenericCoordinatesEnumerator = StartCoroutine(DoGetGenericCoordinates());
 
-        while (!_coordinateReferencesCompletionSource.Task.IsCompleted)
-            await Task.Delay(100);
+        if (await Task.WhenAny(_coordinateReferencesCompletionSource.Task,
+            Task.Delay(RequestTimeoutMs)) != _coordinateReferencesCompletionSource.Task)
+        {
+            Debug.LogError("Could not get coordinates");
+            return new List<GenericCoordinateReference>();
+        }
 
         return _coordinateReferencesCompletionSource.Task.Result;
     }
