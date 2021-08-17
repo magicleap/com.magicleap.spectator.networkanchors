@@ -9,11 +9,20 @@ using UnityEngine;
 public class NetworkAnchorService : MonoBehaviour
 {
     //Server or Host
+    /// <summary>
+    /// Contains a list of all the connected players
+    /// </summary>
     private List<int> _connectedPlayers = new List<int>();
 
     //Player
+    /// <summary>
+    /// The local players ID
+    /// </summary>
     private int _localPlayerId;
 
+    /// <summary>
+    /// The local network anchor. Changing values will trigger the OnNetworkAnchorChanged event.
+    /// </summary>
     public NetworkAnchor LocalNetworkAnchor
     {
         get
@@ -27,13 +36,24 @@ public class NetworkAnchorService : MonoBehaviour
             _localNetworkAnchor = value;
         }
     }
+    /// <summary>
+    /// The private reference to LocalNetworkAnchor, use LocalNetworkAnchor trigger the OnChange event.
+    /// </summary>
     private NetworkAnchor _localNetworkAnchor;
 
+    /// <summary>
+    /// The local player's coordinates.
+    /// </summary>
     private List<GenericCoordinateReference> _genericCoordinateReferences;
-    
-    //The Coordinate Service that is being used
+
+    /// <summary>
+    /// The Coordinate Service that is being used. Right now only pcfs are supported.
+    /// </summary>
     private IGenericCoordinateProvider _genericCoordinateProvider;
 
+    /// <summary>
+    /// True if the player has connected to the network anchor service. Changing values will trigger the OnConnectionChanged event.
+    /// </summary>
     public bool IsConnected
     {
         get
@@ -49,31 +69,43 @@ public class NetworkAnchorService : MonoBehaviour
         }
     }
 
+    /// The private reference to IsConnected, use IsConnected trigger the OnChange event.
     private bool _isConnected;
 
     /// <summary>
-    /// Is called when the local network anchor changes
+    /// Delegate for events that return true or false values.
     /// </summary>
-    /// <param name="players">The new networ anchor value</param>
-    public delegate void ConditionalEvent(bool networkAnchor);
+    /// <param name="condition">true or false</param>
+    public delegate void ConditionalEvent(bool condition);
+    /// <summary>
+    /// Called when IsConnected becomes true or false.
+    /// </summary>
     public ConditionalEvent OnConnectionChanged;
 
     /// <summary>
-    /// Is called when the local network anchor changes
+    /// Delegate for events that return a NetworkAnchor.
     /// </summary>
-    /// <param name="players">The new networ anchor value</param>
+    /// <param name="players">Network anchor value</param>
     public delegate void NetworkAnchorEvent(NetworkAnchor networkAnchor);
+    /// <summary>
+    /// Called when the local player's network anchor is created or updated.
+    /// </summary>
     public NetworkAnchorEvent OnNetworkAnchorChanged;
 
     /// <summary>
-    /// Is called when the service needs to send network events
+    /// Event that sends the data than needs to be sent to remote players.
     /// </summary>
     /// <param name="networkEventCode">The network event code that is referenced to ensure the current parser for the data</param>
     /// <param name="jsonData">The event data json file that will be parsed</param>
-    /// <param name="players">The target for the Network event. int[0] = All , int[1]{-1} = MasterClient , int[i>0] = Target Player Id's </param>
+    /// <param name="players">The target players the event is sent to. Values less than 0 are special types {ALL,OTHERS,MASTER_CLIENT} see SendCodes for more details.</param>
     public delegate void BroadcastNetworkEvent(byte networkEventCode, string jsonData, int[] players);
+    /// <summary>
+    /// Called when the NetworkAnchorService needs data to be sent to remote players.
+    /// </summary>
     public BroadcastNetworkEvent OnBroadcastNetworkEvent;
-
+    /// <summary>
+    /// The Result of the Request, Result or Response.
+    /// </summary>
     public enum ResultCode
     {
         UNKNOWN = 0,
@@ -81,7 +113,9 @@ public class NetworkAnchorService : MonoBehaviour
         NO_MATCHES_FOUND,
         FAILED = 100,
     }
-
+    /// <summary>
+    /// Used as a Player ID value in  BroadcastNetworkEvent, when the recipient IDs are not hard coded.
+    /// </summary>
     public enum SendCode
     {
         MASTER_CLIENT = -1,
@@ -89,10 +123,21 @@ public class NetworkAnchorService : MonoBehaviour
         ALL =-3
     }
 
+    /// <summary>
+    /// How long requests have before they timeout.
+    /// </summary>
     const int RequestTimeoutMs = 3000;
 
+    /// <summary>
+    /// When enabled, all info debug logs are written to the console.
+    /// </summary>
     [SerializeField] private bool _verboseLogging = true;
 
+    /// <summary>
+    /// Call this function when receiving events from the network for the NetworkAnchorService to interpret. Messages without valid event codes ill be ignored.
+    /// </summary>
+    /// <param name="eventCode">The code for the NetworkAnchorService messages.</param>
+    /// <param name="jsonData">String data in json format, that contains the message data.</param>
     public void ProcessNetworkEvents(byte eventCode, object jsonData)
     {
         if(_verboseLogging)
@@ -161,8 +206,8 @@ public class NetworkAnchorService : MonoBehaviour
     /// Function used to send the network events to the client and server
     /// </summary>
     /// <param name="networkEventCode">The network event code that is referenced to ensure the current parser for the data</param>
-    /// <param name="jsonData">The event data json file that will be parsed</param>
-    /// <param name="players">The target for the Network event. int[0] = All , int[1]{-1} = MasterClient , int[i>0] = Target Player Id's </param>
+    /// <param name="jsonData">The event data json file that will be parsed.</param>
+    /// <param name="players">The target for the Network event.</param>
     private void SendNetworkEvent(byte networkEventCode, string jsonData, int[] players)
     {
         OnBroadcastNetworkEvent?.Invoke(networkEventCode, jsonData, players);
@@ -499,12 +544,16 @@ public class NetworkAnchorService : MonoBehaviour
     {
         if (IsConnected)
         {
+            
             if (playerId == -1)
+            {
                 playerId = _localPlayerId;
+                //If we are the target, also disable the coordinates.
+                _genericCoordinateProvider.DisableGenericCoordinates();
+            }
 
             var request = new DisconnectFromServiceRequest() { SenderId = playerId };
             SendNetworkEvent(DisconnectFromServiceRequest.EventCode, JsonUtility.ToJson(request), new int[] { (int)SendCode.MASTER_CLIENT});
-            _genericCoordinateProvider.DisableGenericCoordinates();
         }
     }
 
@@ -625,23 +674,37 @@ public class NetworkAnchorService : MonoBehaviour
         return Task.WhenAny(task, timeoutTask).Unwrap();
     }
 
+    /// <summary>
+    /// Try to create a network anchor based on data from another player.
+    /// </summary>
+    /// <param name="localCoordinateReferences">The local coordinates.</param>
+    /// <param name="remoteCoordinates">The remote player's coordinates.</param>
+    /// <param name="remoteNetworkAnchor">The remote player's Network Anchor.</param>
+    /// <param name="localNetworkAnchor">The resulting local network anchor.</param>
+    /// <returns>Returns true if the remote player has a network anchor and the local and remote players have at least one matching coordinate and</returns>
     private static bool TryGetNetworkAnchor(List<GenericCoordinateReference> localCoordinateReferences,
         List<GenericCoordinateReference> remoteCoordinates,
         NetworkAnchor remoteNetworkAnchor, out NetworkAnchor localNetworkAnchor)
     {
-
         localNetworkAnchor = null;
+        //Find a local coordinate that we share by comparing the coordinate IDs
         var sharedCoordinate = localCoordinateReferences.FirstOrDefault(x =>
             remoteCoordinates.Any(j => j.CoordinateId == x.CoordinateId));
 
-
-        if (sharedCoordinate != null)
+        if (sharedCoordinate != null && NetworkAnchor.IsValid(remoteNetworkAnchor))
         {
+            //If we share a coordinate, find the remote player's coordinate.
+            //This is required because the world positions are different for each player.
             var remoteSharedCoordinate = remoteCoordinates.Find(x => x.CoordinateId == sharedCoordinate.CoordinateId);
 
+            //Since the world position of the network anchor is different for each player, we create a new network anchor by
+            //finding the anchors relative position to a coordinate that is shared by both players (The relative position is the same).
+            //We can then use the relative position to determine the world position of the anchor for the local player.
+            
             localNetworkAnchor = new NetworkAnchor(remoteNetworkAnchor.AnchorId, sharedCoordinate, remoteSharedCoordinate,
-                remoteNetworkAnchor.GetWorldPosition(remoteSharedCoordinate),
-                remoteNetworkAnchor.GetWorldRotation(remoteSharedCoordinate));
+                remoteNetworkAnchor.GetWorldPosition(),
+                remoteNetworkAnchor.GetWorldRotation());
+
             return true;
         }
 
