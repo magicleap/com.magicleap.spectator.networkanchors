@@ -50,6 +50,7 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
 
     public void InitializeGenericCoordinates()
     {
+#if PLATFORM_LUMIN
         if (!MLPersistentCoordinateFrames.IsStarted)
         {
             MLResult result = MLPersistentCoordinateFrames.Start();
@@ -60,13 +61,16 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
 
             MLPersistentCoordinateFrames.OnLocalized += HandleOnLocalized;
         }
+#endif
     }
 
     public void DisableGenericCoordinates()
     {
         CancelTasks();
+#if PLATFORM_LUMIN
         MLPersistentCoordinateFrames.OnLocalized -= HandleOnLocalized;
         MLPersistentCoordinateFrames.Stop();
+#endif
     }
 
     private IEnumerator DoGetGenericCoordinates()
