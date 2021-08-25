@@ -9,5 +9,11 @@
     "name": "com.magicleap.spectator.networkanchors",
     "unity": "2020.2",
     "unityRelease": "0f1",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "samples": [
+        {
+            "displayName": "Examples",
+            "description": "Contains an example project and sample utility scripts.",
+            "path": "Samples~/Network Anchors Examples"
+        }]
 }
