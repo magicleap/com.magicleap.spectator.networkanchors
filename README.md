@@ -85,7 +85,7 @@ Implements IGenericCoordinateProvider and returns the Magic Leap's PCFs as a Gen
 ##  Add Additional Networking Solutions
 
 The samples folder contains a script called `GenericNetworkAnchorController`. This script can be used as a template for integrating other network solutions such as Mirror.
-  - To make sure that player position's spawn properly, make sure that remote players are created as a child of the network anchor transmit their local position. 
+  - To make sure that player position's spawn properly, make sure that remote players are created as a child of the network anchor and transmit their local position. 
   - The network anchor service is only responsible for aligning the network anchor position across devices. Logic for creating and syncing transforms will have to be configured individually.
 
 ## Extend Coordinate Providers
