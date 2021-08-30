@@ -7,6 +7,15 @@ A lightweight package that makes creating colocation experiences easier using a 
 - [Technical Information](technical-information)
 - [Additional Networking Solutions](add-additional-networking-solutions)
 - [Extend Coordinate Providers](extend-coordinate-providers)
+
+## Install Guide
+This package can be installed by cloning or unzipping this repository into your projects `Packages` folder or by importing the package using the Package Manager, by doing the following:
+
+1. Copy the git URL from this project [Code Url](https://github.com/magicleap/com.magicleap.spectator.networkanchors.git).
+2. Inside of your Unity project, open the Package Manager.
+3. Select the + button and click **Add packages from git URL**.
+4. Paste the project URL copied in step one and then click **Add**.
+
 ## Getting Started (Photon)
 This section includes steps to create a multi-user experience using Photon and sample scripts provided in the package.
 
