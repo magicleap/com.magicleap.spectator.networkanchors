@@ -13,6 +13,9 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public class NetworkAnchorService : MonoBehaviour
 {
+    /// <summary>
+    /// The instance of the Network Anchor Service. Best when referenced in the Start function.
+    /// </summary>
     public static NetworkAnchorService Instance { get; private set; }
 
     //Server or Host
@@ -138,7 +141,12 @@ public class NetworkAnchorService : MonoBehaviour
     /// <summary>
     /// When enabled, all info debug logs are written to the console.
     /// </summary>
-    [SerializeField] private bool _verboseLogging = true;
+    [SerializeField] [Tooltip("Logs the network messages that are received by the service")]
+    private bool _logNetworkEventCodes = true;
+
+    //Action called with debug information
+    public Action<string, int> OnDebugLogInfo;
+
 
     void Awake()
     {
@@ -161,8 +169,9 @@ public class NetworkAnchorService : MonoBehaviour
     /// <param name="jsonData">String data in json format, that contains the message data.</param>
     public void ProcessNetworkEvents(byte eventCode, object jsonData)
     {
-        if(_verboseLogging)
-         Debug.Log("Received Message with code" + eventCode);
+        if(_logNetworkEventCodes)
+            OnDebugLogInfo?.Invoke("Received Message with code", eventCode);
+
 
         if (eventCode == GetNetworkAnchorRequest.EventCode)
         {
@@ -276,16 +285,14 @@ public class NetworkAnchorService : MonoBehaviour
 
     public async Task<GetNetworkAnchorResult> RequestNetworkAnchor()
     {
-        if (_verboseLogging)
-            Debug.Log("Requesting the remote Network Anchor");
+            OnDebugLogInfo?.Invoke("Requesting the remote Network Anchor", GetNetworkAnchorRequest.EventCode);
 
         //First we request the anchors from our coordinate provider
         var genericCoordinatesRequest = _genericCoordinateProvider.RequestCoordinateReferences(true);
 
          await genericCoordinatesRequest;
 
-        if (_verboseLogging)
-            Debug.Log("Local coordinates processed");
+        OnDebugLogInfo?.Invoke("Local coordinates received successfully", GetNetworkAnchorRequest.EventCode);
 
         if (!genericCoordinatesRequest.IsCompleted || genericCoordinatesRequest.Result == null)
         {
@@ -313,8 +320,7 @@ public class NetworkAnchorService : MonoBehaviour
             //The result will be set when we catch a network event with the response
             _getNetworkAnchorResponseCompletionSource = new TaskCompletionSource<GetNetworkAnchorResponse>();
            
-            if (_verboseLogging)
-                Debug.Log("Requesting network anchor from player {ID: " + _connectedPlayers[i]+"}");
+            OnDebugLogInfo?.Invoke("Requesting network anchor from player {ID: " + _connectedPlayers[i] + "}", GetNetworkAnchorRequest.EventCode);
 
             //Send the network event.
             SendNetworkEvent(GetNetworkAnchorRequest.EventCode, JsonUtility.ToJson(clientRequest), new int[] { _connectedPlayers[i] });
@@ -328,8 +334,7 @@ public class NetworkAnchorService : MonoBehaviour
             {
                 //Set the result to null to stop the task without throwing a cancel exception
                 _getNetworkAnchorResponseCompletionSource.TrySetResult(null);
-                if(_verboseLogging)
-                 Debug.Log("Did not get a response in time, connection failed. Continuing...");
+                OnDebugLogInfo?.Invoke("Did not get a response in time, connection failed. Continuing...", GetNetworkAnchorRequest.EventCode);
                 continue;
             }
 
@@ -342,16 +347,15 @@ public class NetworkAnchorService : MonoBehaviour
 
                 //Reference the remote player's network anchor
                 var remoteNetworkAnchor = _getNetworkAnchorResponseCompletionSource.Task.Result.NetworkAnchor;
-                
-                if(_verboseLogging)
-                    Debug.Log("Received network anchor from player {ID : " + _connectedPlayers[i]);
+
+                OnDebugLogInfo?.Invoke("Received network anchor from player {ID : " + _connectedPlayers[i], GetNetworkAnchorRequest.EventCode);
 
                 //Use our utility call to check if the player has a common PCF and if a local anchor can be created.
                 if (TryGetNetworkAnchor(_genericCoordinateReferences, remoteCoordinates, remoteNetworkAnchor,
                     out NetworkAnchor localNetworkAnchor))
                 {
-                    if (_verboseLogging)
-                        Debug.Log("Remote anchor is valid and has been located locally.");
+        
+                    OnDebugLogInfo?.Invoke("Remote anchor is valid and has been located locally.", GetNetworkAnchorRequest.EventCode);
 
                     //Cache the local network anchor for easy access.
                     //Setting the value will call an event
@@ -361,15 +365,13 @@ public class NetworkAnchorService : MonoBehaviour
                 }
                 else
                 {
-                    if (_verboseLogging)
-                        Debug.Log("Local player did not share coordinates with the remote player.");
+                    OnDebugLogInfo?.Invoke("Local player did not share coordinates with the remote player.", GetNetworkAnchorRequest.EventCode);
+             
                 }
             }
         }
 
-        if (_verboseLogging)
-            Debug.Log("Network Anchor could not be found / does not exist.");
-
+        OnDebugLogInfo?.Invoke("Network Anchor could not be found / does not exist.", GetNetworkAnchorRequest.EventCode);
         return (new GetNetworkAnchorResult()
         { ResultCode = ResultCode.NO_MATCHES_FOUND, NetworkAnchor = LocalNetworkAnchor });
 
@@ -389,9 +391,8 @@ public class NetworkAnchorService : MonoBehaviour
             };
             //Send the response to the network
             OnBroadcastNetworkEvent?.Invoke(GetNetworkAnchorResponse.EventCode, JsonUtility.ToJson(response), new[] { request.SenderId });
-       
-            if (_verboseLogging)
-                Debug.Log("A player has requested your coordinates and network anchor, but the you have not localized." );
+
+            OnDebugLogInfo?.Invoke("A player has requested your coordinates and network anchor, but the you have not localized.", GetNetworkAnchorRequest.EventCode);
 
             return;
         }
@@ -400,8 +401,7 @@ public class NetworkAnchorService : MonoBehaviour
         response = new GetNetworkAnchorResponse()
         { ResultCode = ResultCode.SUCCESS, GenericCoordinates = _genericCoordinateReferences, NetworkAnchor = LocalNetworkAnchor, SenderId = _localPlayerId };
         
-        if (_verboseLogging)
-            Debug.Log("Sending local coordinates and network anchor to remote player.");
+        OnDebugLogInfo?.Invoke("Sending local coordinates and network anchor to remote player.", GetNetworkAnchorRequest.EventCode);
 
         //Network events are sent as json.
         OnBroadcastNetworkEvent?.Invoke(GetNetworkAnchorResponse.EventCode, JsonUtility.ToJson(response), new[] { request.SenderId });
@@ -438,8 +438,7 @@ public class NetworkAnchorService : MonoBehaviour
     public async Task<CreateNetworkAnchorResult> RequestCreateNetworkAnchor(string id, Vector3 position, Quaternion rotation)
     {
 
-        if (_verboseLogging)
-            Debug.Log("Requesting to create a new Network Anchor.");
+        OnDebugLogInfo?.Invoke("Requesting to create a new Network Anchor.", CreateNetworkAnchorRequest.EventCode);
 
         _createNetworkAnchorResponseCompletionSource = new TaskCompletionSource<CreateNetworkAnchorResponse>();
 
@@ -449,8 +448,8 @@ public class NetworkAnchorService : MonoBehaviour
 
         if (!genericCoordinatesRequest.IsCompleted || genericCoordinatesRequest.Result == null)
         {
-            if (_verboseLogging)
-                Debug.LogError("Generic coordinates could not be found.");
+         
+            OnDebugLogInfo?.Invoke("Generic coordinates could not be found.", CreateNetworkAnchorRequest.EventCode);
 
             _createNetworkAnchorResponseCompletionSource.SetCanceled();
             return (new CreateNetworkAnchorResult()
@@ -465,9 +464,9 @@ public class NetworkAnchorService : MonoBehaviour
         { GenericCoordinates = _genericCoordinateReferences, NetworkAnchor = newNetworkAnchor, SenderId = _localPlayerId };
 
         SendNetworkEvent(CreateNetworkAnchorRequest.EventCode, JsonUtility.ToJson(createAnchorRequest), new int[] { (int)SendCode.OTHERS});
-        if (_verboseLogging)
-            Debug.Log("Notifying others about the new Network Anchor.");
-        
+
+        OnDebugLogInfo?.Invoke("Notifying others about the new Network Anchor.", CreateNetworkAnchorRequest.EventCode);
+
         //TODO: change logic to check if the request has been sent successfully rather than making every client respond.
         var content =
             await TaskWithTimeout(_createNetworkAnchorResponseCompletionSource.Task, TimeSpan.FromMilliseconds(RequestTimeoutMs));
@@ -475,6 +474,8 @@ public class NetworkAnchorService : MonoBehaviour
         if (content == null)
         {
             Debug.LogError("Could not get coordinates");
+            OnDebugLogInfo?.Invoke("ERROR:Could not get coordinates!", CreateNetworkAnchorRequest.EventCode);
+
             _createNetworkAnchorResponseCompletionSource.SetCanceled();
             return (new CreateNetworkAnchorResult()
                 { ResultCode = ResultCode.FAILED });
@@ -552,8 +553,8 @@ public class NetworkAnchorService : MonoBehaviour
     public async Task<ConnectToServiceResult> RequestConnectToService(int playerId, IGenericCoordinateProvider coordinateProvider )
     {
         _connectToServiceResponseCompletionSource = new TaskCompletionSource<ConnectToServiceResponse>();
-        if (_verboseLogging)
-            Debug.Log("Connecting...");
+
+        OnDebugLogInfo?.Invoke("Connecting...", ConnectToServiceRequest.EventCode);
 
         if (coordinateProvider == null)
         {
@@ -588,8 +589,8 @@ public class NetworkAnchorService : MonoBehaviour
         var taskResult = _connectToServiceResponseCompletionSource.Task.Result;
         IsConnected = taskResult.ResultCode == ResultCode.SUCCESS;
 
-        if (_verboseLogging)
-            Debug.Log("Connection to Network Anchors Successful");
+  
+        OnDebugLogInfo?.Invoke("Connection to Network Anchors Successful", ConnectToServiceRequest.EventCode);
 
         var result = new ConnectToServiceResult()
         {

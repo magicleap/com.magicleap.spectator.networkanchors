@@ -138,6 +138,12 @@ public class NetworkAnchorLocalizer : MonoBehaviour
             //If we are a magic leap then request a network anchor relative to our Pcfs
             MoveToNetworkAnchor(getAnchorRequest.Result.NetworkAnchor);
         }
+        else
+        {
+            //If we fail, return the anchor to the last localized position
+            if (NetworkAnchorService.LocalNetworkAnchor != null)
+                MoveToNetworkAnchor(NetworkAnchorService.LocalNetworkAnchor);
+        }
 
         _isBusy = false;
     }
@@ -162,6 +168,10 @@ public class NetworkAnchorLocalizer : MonoBehaviour
         {
             string info = createAnchorRequest.Result != null ? createAnchorRequest.Result.ResultCode.ToString() : "UNKNOWN";
             Debug.LogError("Could not create anchor " + info);
+            
+            //If we fail, return the anchor to the last localized position
+            if(NetworkAnchorService.LocalNetworkAnchor !=null)
+                MoveToNetworkAnchor(NetworkAnchorService.LocalNetworkAnchor);
         }
 
         _isBusy = false;
