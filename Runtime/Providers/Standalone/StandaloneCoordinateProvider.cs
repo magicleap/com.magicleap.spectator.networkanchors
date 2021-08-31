@@ -43,7 +43,7 @@ public class StandaloneCoordinateProvider : MonoBehaviour, IGenericCoordinatePro
         }
         else
         {
-            Debug.LogError("Could not download anchors " + downloadHostCoordinatesRequest.Status);
+            Debug.LogError("Could not download anchors from remote player." + downloadHostCoordinatesRequest.Status);
             return null;
         }
     }

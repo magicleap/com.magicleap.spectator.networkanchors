@@ -292,8 +292,6 @@ public class NetworkAnchorService : MonoBehaviour
 
          await genericCoordinatesRequest;
 
-        OnDebugLogInfo?.Invoke("Local coordinates received successfully", GetNetworkAnchorRequest.EventCode);
-
         if (!genericCoordinatesRequest.IsCompleted || genericCoordinatesRequest.Result == null)
         {
             Debug.LogError("Generic coordinates could not be found.");
@@ -301,6 +299,8 @@ public class NetworkAnchorService : MonoBehaviour
             return (new GetNetworkAnchorResult()
             { ResultCode = ResultCode.FAILED });
         }
+
+        OnDebugLogInfo?.Invoke("Local coordinates received successfully", GetNetworkAnchorRequest.EventCode);
 
         //We cache the generic coordinates so they can be referenced again in the future.
         _genericCoordinateReferences = genericCoordinatesRequest.Result;
@@ -463,7 +463,7 @@ public class NetworkAnchorService : MonoBehaviour
         var createAnchorRequest = new CreateNetworkAnchorRequest()
         { GenericCoordinates = _genericCoordinateReferences, NetworkAnchor = newNetworkAnchor, SenderId = _localPlayerId };
 
-        SendNetworkEvent(CreateNetworkAnchorRequest.EventCode, JsonUtility.ToJson(createAnchorRequest), new int[] { (int)SendCode.OTHERS});
+        SendNetworkEvent(CreateNetworkAnchorRequest.EventCode, JsonUtility.ToJson(createAnchorRequest), new int[] { (int)SendCode.ALL});
 
         OnDebugLogInfo?.Invoke("Notifying others about the new Network Anchor.", CreateNetworkAnchorRequest.EventCode);
 
