@@ -295,7 +295,7 @@ public class NetworkAnchorService : MonoBehaviour
         if (!genericCoordinatesRequest.IsCompleted || genericCoordinatesRequest.Result == null)
         {
             Debug.LogError("Generic coordinates could not be found.");
-
+            OnDebugLogInfo?.Invoke("Your coordinates could not be found!", GetNetworkAnchorRequest.EventCode);
             return (new GetNetworkAnchorResult()
             { ResultCode = ResultCode.FAILED });
         }
