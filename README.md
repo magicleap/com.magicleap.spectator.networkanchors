@@ -23,7 +23,7 @@ This section includes steps to create a multi-user experience using Photon and s
 1. Add download PUN 2 from the asset store and import it into your project.
 2. Define the your Photon credentials in using the **PUN Wizard** or **PUN Server settings**.
 3. To enable the photon example scripts, navigate to the Player Settings  (**Edit > Project Settings** , then click **Player**).
-4. Under the **Other Settings** section, add **PHOTON** to the **Scripting Define Symbols**.
+4. Under the **Other Settings** section, add **PHOTON** to the **Scripting Define Symbols**. Do this for each of your target platforms settings (Standalone and Lumin). 
 
 #### Create a Simple Scene
 1. From the menu select File> New Scene. Then select the Basic (Built-in) template.
