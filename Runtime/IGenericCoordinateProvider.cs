@@ -2,7 +2,9 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
-
+/// <summary>
+/// An interface that is used to retrieve a variety of coordinate types using a generic class.
+/// </summary>
 public interface IGenericCoordinateProvider
 {
     /// <summary>
