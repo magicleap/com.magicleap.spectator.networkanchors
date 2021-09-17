@@ -3,11 +3,11 @@
 A lightweight package that makes creating colocation experiences easier using a shared origin.
 
 ## Table of Contents
-- [Getting Started (Photon)](getting-started-photon)
-- [Technical Information](technical-information)
-- [Additional Networking Solutions](add-additional-networking-solutions)
-- [Extend Coordinate Providers](extend-coordinate-providers)
-- [Troubleshooting](troubleshooting)
+- [Getting Started (Photon)](#getting-started-photon)
+- [Technical Information](#technical-information)
+- [Additional Networking Solutions](#add-additional-networking-solutions)
+- [Extend Coordinate Providers](#extend-coordinate-providers)
+- [Troubleshooting](#troubleshooting)
 
 ## Install Guide
 This package can be installed by cloning or unzipping this repository into your projects `Packages` folder or by importing the package using the Package Manager, by doing the following:
