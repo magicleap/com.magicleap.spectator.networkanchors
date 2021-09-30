@@ -5,9 +5,10 @@ using UnityEngine;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
 
-public class AndroidImageCoordinateProvider : MonoBehaviour, IGenericCoordinateProvider
+public class MobileImageCoordinateProvider : MonoBehaviour, IGenericCoordinateProvider
 {
     public ARTrackedImageManager ARTrackedImageManager;
+    public string AnchorName;
 
     private List<ARTrackedImage> _arTrackedImages = new List<ARTrackedImage>();
     private List<GenericCoordinateReference> _genericCoordinateReference = new List<GenericCoordinateReference>();
@@ -49,11 +50,6 @@ public class AndroidImageCoordinateProvider : MonoBehaviour, IGenericCoordinateP
             }
         }
 
-    }
-
-    public Task<List<GenericCoordinateReference>> RequestCoordinateReferences(bool refresh)
-    {
-        
         _genericCoordinateReference.Clear();
 
         for (int i = 0; i < _arTrackedImages.Count; i++)
@@ -64,18 +60,32 @@ public class AndroidImageCoordinateProvider : MonoBehaviour, IGenericCoordinateP
             {
                 var genericCoordinate = new GenericCoordinateReference()
                 {
-                    CoordinateId = image.referenceImage.guid.ToString(),
+                    CoordinateId = AnchorName,
                     Position = image.transform.position,
                     Rotation = image.transform.rotation
                 };
 
                 _genericCoordinateReference.Add(genericCoordinate);
             }
-            
+
         }
 
         completionSource.TrySetResult(_genericCoordinateReference);
-        return completionSource.Task;
+
+    }
+
+    public async Task<List<GenericCoordinateReference>> RequestCoordinateReferences(bool refresh)
+    {
+        completionSource.TrySetResult(new List<GenericCoordinateReference>());
+        completionSource = new TaskCompletionSource<List<GenericCoordinateReference>>();
+
+        if (await Task.WhenAny(completionSource.Task, Task.Delay(10000)) != completionSource.Task)
+        {
+            Debug.LogError("no image targets found, count: " + _arTrackedImages.Count);
+            return new List<GenericCoordinateReference>();
+        }
+
+        return completionSource.Task.Result;
     }
 
 

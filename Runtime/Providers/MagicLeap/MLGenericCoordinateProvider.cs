@@ -5,11 +5,51 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.XR.MagicLeap;
 
+[System.Serializable]
+public class ImageTargetInfo
+{
+    public string Name;
+    public Texture2D Image;
+    public float LongerDimension;
+}
+
+//This contains the four possible statuses we can encounter while trying to use the tracker.
+public enum ImageTrackingStatus
+{
+    Inactive,
+    PrivilegeDenied,
+    ImageTrackingActive,
+    CameraUnavailable
+}
+
 /// <summary>
 /// Transforms Magic Leap's PCFs into generic Coordinates that can be used for co-location experiences.
 /// </summary>
 public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProvider
 {
+    //Image Tracking
+
+    // The image target built from the ImageTargetInfo object
+    private MLImageTracker.Target _imageTarget;
+
+    //The inspector field where we assign our target images
+    public ImageTargetInfo TargetInfo;
+
+    // The main event and statuses for Image Tracking functionality
+    //public delegate void TrackingStatusChanged(ImageTrackingStatus status);
+    //public static TrackingStatusChanged OnImageTrackingStatusChanged;
+    //public ImageTrackingStatus CurrentStatus;
+
+    private MLImageTracker.Target.Result _imageTargetResult;
+
+    //These allow us to see the position and rotation of the detected image from the inspector
+    public Vector3 ImagePos = Vector3.zero;
+    public Quaternion ImageRot = Quaternion.identity;
+
+    private bool _isImageTrackingInitialized = false;
+
+    //PCFs
+
     //TODO: Handle loss of tracking
     private bool _isLocalized;
 
@@ -17,7 +57,7 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
 
     private TaskCompletionSource<List<GenericCoordinateReference>> _coordinateReferencesCompletionSource;
 
-    private const int RequestTimeoutMs = 2000;
+    private const int RequestTimeoutMs = 2000000;
 
     public async Task<List<GenericCoordinateReference>> RequestCoordinateReferences(bool refresh)
     {
@@ -51,6 +91,7 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
     public void InitializeGenericCoordinates()
     {
 #if PLATFORM_LUMIN
+
         if (!MLPersistentCoordinateFrames.IsStarted)
         {
             MLResult result = MLPersistentCoordinateFrames.Start();
@@ -79,6 +120,54 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
         //system start up
         InitializeGenericCoordinates();
 
+        if (string.IsNullOrEmpty(TargetInfo.Name) == false)
+        {
+            bool privilegesGranted = false;
+            bool hasPrivilegesResult = false;
+
+            
+            MLPrivileges.RequestPrivilegesAsync(MLPrivileges.Id.CameraCapture).ContinueWith((x) =>
+            {
+                if (x.Result.IsOk == false && x.Result != MLResult.Code.PrivilegeGranted)
+                {
+                    privilegesGranted = false;
+                    Debug.LogError("image capture privileges not granted. Reason: " + x.Result);
+                }
+                else
+                {
+                    privilegesGranted = true;
+                }
+
+                hasPrivilegesResult = true;
+            });
+
+            
+            privilegesGranted = true;
+            hasPrivilegesResult = true;
+
+            while (hasPrivilegesResult == false)
+            {
+                yield return null;
+            }
+
+            if (privilegesGranted == true)
+            {
+                _imageTarget = MLImageTracker.AddTarget(TargetInfo.Name, TargetInfo.Image, TargetInfo.LongerDimension, HandleImageTracked, true);
+            }
+
+            if (_imageTarget == null)
+            {
+                Debug.LogError("Cannot add image target");
+            } else
+            {
+                _isImageTrackingInitialized = true;
+            }
+
+
+        }
+
+        
+
         while (!MLPersistentCoordinateFrames.IsStarted || !MLPersistentCoordinateFrames.IsLocalized)
         {
             yield return null;
@@ -101,6 +190,28 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
                 { CoordinateId = x.CFUID.ToString(), Position = x.Position, Rotation = x.Rotation }).ToList();
         
         Debug.Log("Found " + genericPcfReferences.Count + " MultiUserMultiSession coordinates");
+
+        if (_isImageTrackingInitialized)
+        {
+            Debug.Log("123");
+
+            if(genericPcfReferences.Count == 0)
+            {
+                while (_imageTargetResult.Status != MLImageTracker.Target.TrackingStatus.Tracked)
+                {
+                    yield return null;
+                }
+            }
+
+            Debug.Log("456" + _imageTargetResult.Position);
+
+            genericPcfReferences.Add(new GenericCoordinateReference()
+            {
+                CoordinateId = TargetInfo.Name,
+                Position = _imageTargetResult.Position,
+                Rotation = _imageTargetResult.Rotation
+            });
+        }
 
         _coordinateReferencesCompletionSource?.TrySetResult(genericPcfReferences);
 #else
@@ -128,4 +239,13 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
     {
         CancelTasks();
     }
+
+#if PLATFORM_LUMIN
+    private void HandleImageTracked(MLImageTracker.Target imageTarget,
+                                    MLImageTracker.Target.Result imageTargetResult)
+    {
+        _imageTargetResult = imageTargetResult;
+    }
+
+#endif
 }
