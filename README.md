@@ -3,10 +3,11 @@
 A lightweight package that makes creating colocation experiences easier using a shared origin.
 
 ## Table of Contents
-- [Getting Started (Photon)](getting-started-photon)
-- [Technical Information](technical-information)
-- [Additional Networking Solutions](add-additional-networking-solutions)
-- [Extend Coordinate Providers](extend-coordinate-providers)
+- [Getting Started (Photon)](#getting-started-photon)
+- [Technical Information](#technical-information)
+- [Additional Networking Solutions](#add-additional-networking-solutions)
+- [Extend Coordinate Providers](#extend-coordinate-providers)
+- [Troubleshooting](#troubleshooting)
 
 ## Install Guide
 This package can be installed by cloning or unzipping this repository into your projects `Packages` folder or by importing the package using the Package Manager, by doing the following:
@@ -23,7 +24,7 @@ This section includes steps to create a multi-user experience using Photon and s
 1. Add download PUN 2 from the asset store and import it into your project.
 2. Define the your Photon credentials in using the **PUN Wizard** or **PUN Server settings**.
 3. To enable the photon example scripts, navigate to the Player Settings  (**Edit > Project Settings** , then click **Player**).
-4. Under the **Other Settings** section, add **PHOTON** to the **Scripting Define Symbols**.
+4. Under the **Other Settings** section, add **PHOTON** to the **Scripting Define Symbols**. Do this for each of your target platforms settings (Standalone and Lumin). 
 
 #### Create a Simple Scene
 1. From the menu select File> New Scene. Then select the Basic (Built-in) template.
@@ -101,3 +102,9 @@ The samples folder contains a script called `GenericNetworkAnchorController`. Th
 Additional Coordinate providers can be added by implementing the `IGenericCoordinateProvider` interface. The samples folder includes a `MultiPlatformCoordinateProvider` which demonstrates a rudimentary way on providing the correct provider to the network service at runtime.
 
 Coordinate providers are located in `Packages/com.magicleap.spectatorview.networkanchors/Runtime/Providers/` . The provided scripts implement the `RequestCoordinateReferences` as an `Async Task`. This is so that the task can be waited on until initialization is complete. View `MLGenericCoordinateProvider` to learn more.
+
+## Troubleshooting
+If the headsets cannot localize, follow the following troubleshooting steps.
+* Make sure that you do not press **Skip** when initializing the headset, and that the headset showed a confirmation that the location was recognized.
+* Enable the **Shared World** feature in the devices **Settings > Privacy** menu.
+* Restart your headset.
