@@ -9,6 +9,7 @@ public class MobileImageCoordinateProvider : MonoBehaviour, IGenericCoordinatePr
 {
     public ARTrackedImageManager ARTrackedImageManager;
     public string AnchorName;
+    public GameObject TrackedImagePrefab;
 
     private List<ARTrackedImage> _arTrackedImages = new List<ARTrackedImage>();
     private List<GenericCoordinateReference> _genericCoordinateReference = new List<GenericCoordinateReference>();
@@ -65,6 +66,10 @@ public class MobileImageCoordinateProvider : MonoBehaviour, IGenericCoordinatePr
                     Rotation = image.transform.rotation
                 };
 
+                TrackedImagePrefab.transform.position = image.transform.position;
+                //Debug.Log(image.transform.position);
+                //Debug.Log(image.transform.rotation);
+
                 _genericCoordinateReference.Add(genericCoordinate);
             }
 
@@ -79,7 +84,7 @@ public class MobileImageCoordinateProvider : MonoBehaviour, IGenericCoordinatePr
         completionSource.TrySetResult(new List<GenericCoordinateReference>());
         completionSource = new TaskCompletionSource<List<GenericCoordinateReference>>();
 
-        if (await Task.WhenAny(completionSource.Task, Task.Delay(10000)) != completionSource.Task)
+        if (await Task.WhenAny(completionSource.Task, Task.Delay(100000)) != completionSource.Task)
         {
             Debug.LogError("no image targets found, count: " + _arTrackedImages.Count);
             return new List<GenericCoordinateReference>();

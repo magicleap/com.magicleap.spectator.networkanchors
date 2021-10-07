@@ -136,7 +136,7 @@ public class NetworkAnchorService : MonoBehaviour
     /// <summary>
     /// How long requests have before they timeout.
     /// </summary>
-    const int RequestTimeoutMs = 3000;
+    const int RequestTimeoutMs = 300000;
 
     /// <summary>
     /// When enabled, all info debug logs are written to the console.
