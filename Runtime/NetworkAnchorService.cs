@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using ExitGames.Client.Photon;
 using UnityEngine;
 
 /// <summary>
@@ -139,6 +140,11 @@ public class NetworkAnchorService : MonoBehaviour
     const int RequestTimeoutMs = 300000;
 
     /// <summary>
+    /// How long requests have before they timeout.
+    /// </summary>
+    const int RemoteCoordinateRequestTimeoutMs = 300000;
+
+    /// <summary>
     /// When enabled, all info debug logs are written to the console.
     /// </summary>
     [SerializeField] [Tooltip("Logs the network messages that are received by the service")]
@@ -162,6 +168,7 @@ public class NetworkAnchorService : MonoBehaviour
         }
     }
 
+
     /// <summary>
     /// Call this function when receiving events from the network for the NetworkAnchorService to interpret. Messages without valid event codes ill be ignored.
     /// </summary>
@@ -169,6 +176,12 @@ public class NetworkAnchorService : MonoBehaviour
     /// <param name="jsonData">String data in json format, that contains the message data.</param>
     public void ProcessNetworkEvents(byte eventCode, object jsonData)
     {
+        if (IsConnected == false)
+        {
+            OnDebugLogInfo?.Invoke("Received Message but service is not connected.", eventCode);
+            return;
+        }
+
         if(_logNetworkEventCodes)
             OnDebugLogInfo?.Invoke("Received Message with code", eventCode);
 

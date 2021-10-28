@@ -9,21 +9,23 @@ using UnityEngine;
 /// </summary>
 public class StandaloneCoordinateProvider : MonoBehaviour, IGenericCoordinateProvider
 {
-    public NetworkAnchorService NetworkAnchorService;
+    private NetworkAnchorService NetworkAnchorService;
     private const int RequestTimeoutMs = 2000;
 
-    public void OnValidate()
+    void Start()
     {
-        if (NetworkAnchorService == null)
-        {
-            NetworkAnchorService = FindObjectOfType<NetworkAnchorService>();
-        }
+        NetworkAnchorService = NetworkAnchorService.Instance;
     }
 
     public async Task<List<GenericCoordinateReference>> RequestCoordinateReferences(bool refresh)
     {
+        if (NetworkAnchorService == null)
+        {
+            Debug.LogError("No NetworkAnchorService Instance found! StandaloneCoordinateProvider cannot retrieve coordinates.");
+            return new List<GenericCoordinateReference>();
+        }
 
-      //  Request to download them
+        //  Request to download them
         var downloadHostCoordinatesRequest =
             NetworkAnchorService.RequestRemoteCoordinates();
 
@@ -44,7 +46,7 @@ public class StandaloneCoordinateProvider : MonoBehaviour, IGenericCoordinatePro
         else
         {
             Debug.LogError("Could not download anchors from remote player." + downloadHostCoordinatesRequest.Status);
-            return null;
+            return new List<GenericCoordinateReference>();
         }
     }
 
