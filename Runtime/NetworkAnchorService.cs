@@ -176,15 +176,32 @@ public class NetworkAnchorService : MonoBehaviour
     /// <param name="jsonData">String data in json format, that contains the message data.</param>
     public void ProcessNetworkEvents(byte eventCode, object jsonData)
     {
-        if (IsConnected == false)
-        {
-            OnDebugLogInfo?.Invoke("Received Message but service is not connected.", eventCode);
-            return;
-        }
 
         if(_logNetworkEventCodes)
             OnDebugLogInfo?.Invoke("Received Message with code", eventCode);
 
+
+        if (eventCode == ConnectToServiceRequest.EventCode)
+        {
+            ConnectToServiceRequest result = JsonUtility.FromJson<ConnectToServiceRequest>((string)jsonData);
+            ProcessConnectToServiceRequest(result);
+            return;
+        }
+
+        if (eventCode == DisconnectFromServiceRequest.EventCode)
+        {
+            DisconnectFromServiceRequest result = JsonUtility.FromJson<DisconnectFromServiceRequest>((string)jsonData);
+            ProcessDisconnectFromServiceRequest(result);
+            return;
+        }
+
+        if (eventCode == ConnectToServiceResponse.EventCode)
+        {
+            ConnectToServiceResponse result = JsonUtility.FromJson<ConnectToServiceResponse>((string)jsonData);
+            _connectedPlayers = result.ConnectedPlayerIds;
+            _connectToServiceResponseCompletionSource?.TrySetResult(result);
+            return;
+        }
 
         if (eventCode == GetNetworkAnchorRequest.EventCode)
         {
@@ -210,25 +227,6 @@ public class NetworkAnchorService : MonoBehaviour
         {
             CreateNetworkAnchorResponse result = JsonUtility.FromJson<CreateNetworkAnchorResponse>((string)jsonData);
             _createNetworkAnchorResponseCompletionSource?.TrySetResult(result);
-        }
-
-        if (eventCode == ConnectToServiceRequest.EventCode)
-        {
-            ConnectToServiceRequest result = JsonUtility.FromJson<ConnectToServiceRequest>((string)jsonData);
-            ProcessConnectToServiceRequest(result);
-        }
-
-        if (eventCode == DisconnectFromServiceRequest.EventCode)
-        {
-            DisconnectFromServiceRequest result = JsonUtility.FromJson<DisconnectFromServiceRequest>((string)jsonData);
-            ProcessDisconnectFromServiceRequest(result);
-        }
-
-        if (eventCode == ConnectToServiceResponse.EventCode)
-        {
-            ConnectToServiceResponse result = JsonUtility.FromJson<ConnectToServiceResponse>((string)jsonData);
-            _connectedPlayers = result.ConnectedPlayerIds;
-            _connectToServiceResponseCompletionSource?.TrySetResult(result);
         }
 
         if (eventCode == GetRemoteCoordinatesRequest.EventCode)
