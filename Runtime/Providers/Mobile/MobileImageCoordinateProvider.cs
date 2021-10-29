@@ -12,6 +12,8 @@ public class MobileImageCoordinateProvider : MonoBehaviour, IGenericCoordinatePr
     public string AnchorName;
     public GameObject TrackedImagePrefab;
 
+    private const int RequestTimeoutMs = 20000;
+
 #if AR_FOUNDATION
     private List<ARTrackedImage> _arTrackedImages = new List<ARTrackedImage>();
     private ARTrackedImageManager ARTrackedImageManager
@@ -32,7 +34,7 @@ public class MobileImageCoordinateProvider : MonoBehaviour, IGenericCoordinatePr
 
     private List<GenericCoordinateReference> _genericCoordinateReference = new List<GenericCoordinateReference>();
 
-    TaskCompletionSource<List<GenericCoordinateReference>> completionSource = new TaskCompletionSource<List<GenericCoordinateReference>>();
+    TaskCompletionSource<List<GenericCoordinateReference>> _completionSource = new TaskCompletionSource<List<GenericCoordinateReference>>();
 
     public void DisableGenericCoordinates()
     {
@@ -93,7 +95,7 @@ public class MobileImageCoordinateProvider : MonoBehaviour, IGenericCoordinatePr
 
         }
 
-        completionSource.TrySetResult(_genericCoordinateReference);
+        _completionSource.TrySetResult(_genericCoordinateReference);
 
     }
 #endif
@@ -101,16 +103,19 @@ public class MobileImageCoordinateProvider : MonoBehaviour, IGenericCoordinatePr
     public async Task<List<GenericCoordinateReference>> RequestCoordinateReferences(bool refresh)
     {
 #if AR_FOUNDATION
-        completionSource.TrySetResult(new List<GenericCoordinateReference>());
-        completionSource = new TaskCompletionSource<List<GenericCoordinateReference>>();
+        _completionSource.TrySetResult(new List<GenericCoordinateReference>());
+        _completionSource = new TaskCompletionSource<List<GenericCoordinateReference>>();
 
-        if (await Task.WhenAny(completionSource.Task, Task.Delay(100000)) != completionSource.Task)
+        //With timeout
+        if (await Task.WhenAny(_completionSource.Task, Task.Delay(RequestTimeoutMs * 100 )) != _completionSource.Task)
         {
             Debug.LogError("no image targets found, count: " + _arTrackedImages.Count);
             return new List<GenericCoordinateReference>();
         }
+        // You can also use no timeout
+        // await _completionSource.Task;
 
-        return completionSource.Task.Result;
+        return _completionSource.Task.Result;
 #endif
         return new List<GenericCoordinateReference>();
     }
