@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using ExitGames.Client.Photon;
 using UnityEngine;
 
 /// <summary>
@@ -136,7 +137,12 @@ public class NetworkAnchorService : MonoBehaviour
     /// <summary>
     /// How long requests have before they timeout.
     /// </summary>
-    const int RequestTimeoutMs = 3000;
+    const int RequestTimeoutMs = 300000;
+
+    /// <summary>
+    /// How long requests have before they timeout.
+    /// </summary>
+    const int RemoteCoordinateRequestTimeoutMs = 300000;
 
     /// <summary>
     /// When enabled, all info debug logs are written to the console.
@@ -162,6 +168,7 @@ public class NetworkAnchorService : MonoBehaviour
         }
     }
 
+
     /// <summary>
     /// Call this function when receiving events from the network for the NetworkAnchorService to interpret. Messages without valid event codes ill be ignored.
     /// </summary>
@@ -169,9 +176,32 @@ public class NetworkAnchorService : MonoBehaviour
     /// <param name="jsonData">String data in json format, that contains the message data.</param>
     public void ProcessNetworkEvents(byte eventCode, object jsonData)
     {
+
         if(_logNetworkEventCodes)
             OnDebugLogInfo?.Invoke("Received Message with code", eventCode);
 
+
+        if (eventCode == ConnectToServiceRequest.EventCode)
+        {
+            ConnectToServiceRequest result = JsonUtility.FromJson<ConnectToServiceRequest>((string)jsonData);
+            ProcessConnectToServiceRequest(result);
+            return;
+        }
+
+        if (eventCode == DisconnectFromServiceRequest.EventCode)
+        {
+            DisconnectFromServiceRequest result = JsonUtility.FromJson<DisconnectFromServiceRequest>((string)jsonData);
+            ProcessDisconnectFromServiceRequest(result);
+            return;
+        }
+
+        if (eventCode == ConnectToServiceResponse.EventCode)
+        {
+            ConnectToServiceResponse result = JsonUtility.FromJson<ConnectToServiceResponse>((string)jsonData);
+            _connectedPlayers = result.ConnectedPlayerIds;
+            _connectToServiceResponseCompletionSource?.TrySetResult(result);
+            return;
+        }
 
         if (eventCode == GetNetworkAnchorRequest.EventCode)
         {
@@ -197,25 +227,6 @@ public class NetworkAnchorService : MonoBehaviour
         {
             CreateNetworkAnchorResponse result = JsonUtility.FromJson<CreateNetworkAnchorResponse>((string)jsonData);
             _createNetworkAnchorResponseCompletionSource?.TrySetResult(result);
-        }
-
-        if (eventCode == ConnectToServiceRequest.EventCode)
-        {
-            ConnectToServiceRequest result = JsonUtility.FromJson<ConnectToServiceRequest>((string)jsonData);
-            ProcessConnectToServiceRequest(result);
-        }
-
-        if (eventCode == DisconnectFromServiceRequest.EventCode)
-        {
-            DisconnectFromServiceRequest result = JsonUtility.FromJson<DisconnectFromServiceRequest>((string)jsonData);
-            ProcessDisconnectFromServiceRequest(result);
-        }
-
-        if (eventCode == ConnectToServiceResponse.EventCode)
-        {
-            ConnectToServiceResponse result = JsonUtility.FromJson<ConnectToServiceResponse>((string)jsonData);
-            _connectedPlayers = result.ConnectedPlayerIds;
-            _connectToServiceResponseCompletionSource?.TrySetResult(result);
         }
 
         if (eventCode == GetRemoteCoordinatesRequest.EventCode)
