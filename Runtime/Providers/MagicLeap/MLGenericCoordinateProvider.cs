@@ -28,6 +28,8 @@ public enum ImageTrackingStatus
 public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProvider
 {
     //Image Tracking
+    private bool _isLookingForImage = false;
+    private bool _isRequestingImageTarget = false;
 
 #if PLATFORM_LUMIN
     // The image target built from the ImageTargetInfo object
@@ -140,50 +142,6 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
         //system start up
         InitializeGenericCoordinates();
 
-        if (string.IsNullOrEmpty(TargetInfo.Name) == false)
-        {
-            yield return new WaitForEndOfFrame();
-
-            bool privilegesGranted = false;
-            bool hasPrivilegesResult = false;
-
-            
-            MLPrivileges.RequestPrivilegesAsync(MLPrivileges.Id.CameraCapture).ContinueWith((x) =>
-            {
-                if (x.Result.IsOk == false && x.Result != MLResult.Code.PrivilegeGranted)
-                {
-                    privilegesGranted = false;
-                    Debug.LogError("image capture privileges not granted. Reason: " + x.Result);
-                }
-                else
-                {
-                    privilegesGranted = true;
-                }
-
-                hasPrivilegesResult = true;
-            });
-
-            while (hasPrivilegesResult == false)
-            {
-                yield return null;
-            }
-
-            if (privilegesGranted == true && !_isImageTrackingInitialized)
-            {
-                _imageTarget = MLImageTracker.AddTarget(TargetInfo.Name, TargetInfo.Image, TargetInfo.LongerDimension, HandleImageTracked, false);
-            }
-
-            if (_imageTarget == null)
-            {
-                Debug.LogError("Cannot add image target");
-            } else
-            {
-                Debug.Log("Image Target Added");
-                _isImageTrackingInitialized = true;
-            }
-
-        }
-
         Debug.Log("Initializing PCFs");
 
         float pcfRequestTime = Time.time;
@@ -217,25 +175,17 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
         }
 
 
-        if (_isImageTrackingInitialized)
+        if (_imageTargetResult.Status != MLImageTracker.Target.TrackingStatus.Tracked
+                           || _imagePos.x < .01f && _imagePos.x > -0.01f)
         {
-                    Debug.Log("Image Tracking initialized, searching for image target " + result);
-                    float imageRequestedTime = Time.time;
-                    while (Time.time - imageRequestedTime < ImageTargetSearchTime &&
-                           (_imageTargetResult.Status != MLImageTracker.Target.TrackingStatus.Tracked 
-                           || _imagePos.x < .01f && _imagePos.x > -0.01f  ))
-                    {
-                            yield return null;
-                    }
+            _imageCoordinate = new GenericCoordinateReference()
+            {
+                CoordinateId = TargetInfo.Name,
+                Position = _imagePos,
+                Rotation = _imageRot
+            };
 
-                    _imageCoordinate = new GenericCoordinateReference()
-                    {
-                        CoordinateId = TargetInfo.Name,
-                        Position = _imagePos,
-                        Rotation = _imageRot
-                    };
-
-                    genericPcfReferences.Add(_imageCoordinate);
+            genericPcfReferences.Add(_imageCoordinate);
         }
         Debug.Log("Returning "+ genericPcfReferences.Count + " genericPcfReferences.");
 
@@ -282,10 +232,97 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
                 _imageTargetVisual.transform.rotation = imageTargetResult.Rotation;
                 _imageTargetVisual.SetActive(true);
             }
-          
+
         }
 
     }
-
 #endif
+    
+    public IEnumerator ToggleImageScanning(bool scanImage)
+    {
+        _isRequestingImageTarget = scanImage;
+        if (_isLookingForImage == false)
+        {
+            yield return DoSearchForImage();
+        }
+
+        yield return null;
+    }
+
+    private IEnumerator DoSearchForImage()
+    {
+        List<GenericCoordinateReference> genericPcfReferences = new List<GenericCoordinateReference>();
+        _isLookingForImage = true;
+        if (string.IsNullOrEmpty(TargetInfo.Name) == false)
+        {
+            yield return new WaitForEndOfFrame();
+#if PLATFORM_LUMIN
+
+            bool privilegesGranted = false;
+            bool hasPrivilegesResult = false;
+
+            MLPrivileges.RequestPrivilegesAsync(MLPrivileges.Id.CameraCapture).ContinueWith((x) =>
+            {
+                if (x.Result.IsOk == false && x.Result != MLResult.Code.PrivilegeGranted)
+                {
+                    privilegesGranted = false;
+                    Debug.LogError("image capture privileges not granted. Reason: " + x.Result);
+                }
+                else
+                {
+                    privilegesGranted = true;
+                }
+
+                hasPrivilegesResult = true;
+            });
+
+            while (hasPrivilegesResult == false)
+            {
+                yield return null;
+            }
+
+            if (privilegesGranted == true && !_isImageTrackingInitialized)
+            {
+                _imageTarget = MLImageTracker.AddTarget(TargetInfo.Name, TargetInfo.Image, TargetInfo.LongerDimension, HandleImageTracked, false);
+            }
+
+            if (_imageTarget == null)
+            {
+                Debug.LogError("Cannot add image target");
+            }
+            else
+            {
+                Debug.Log("Image Target Added");
+                _isImageTrackingInitialized = true;
+            }
+#endif
+        }
+        yield return null;
+
+        if (_isImageTrackingInitialized)
+        {
+            
+            float imageRequestedTime = Time.time;
+            while (_isLookingForImage)
+            {
+                yield return null;
+            }
+
+            _imageCoordinate = new GenericCoordinateReference()
+            {
+                CoordinateId = TargetInfo.Name,
+                Position = _imagePos,
+                Rotation = _imageRot
+            };
+
+            genericPcfReferences.Add(_imageCoordinate);
+        }
+
+        _isLookingForImage = false;
+        _isRequestingImageTarget = false;
+
+        MLImageTracker.Stop();
+        MLCamera.Disconnect();
+    }
+//#endif
 }

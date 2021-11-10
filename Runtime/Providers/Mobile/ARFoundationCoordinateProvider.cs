@@ -7,7 +7,7 @@ using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
 #endif
 
-public class MobileImageCoordinateProvider : MonoBehaviour, IGenericCoordinateProvider
+public class ARFoundationCoordinateProvider : MonoBehaviour, IGenericCoordinateProvider
 {
     public string AnchorName;
     public GameObject TrackedImagePrefab;
