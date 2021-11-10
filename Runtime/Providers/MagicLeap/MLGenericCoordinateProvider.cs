@@ -36,7 +36,7 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
 
     //The inspector field where we assign our target images
     public ImageTargetInfo TargetInfo;
-    private Coroutine searchForImageCoroutine;
+    private Coroutine _searchForImageCoroutine;
 
 #if PLATFORM_LUMIN
     private MLImageTracker.Target.Result _imageTargetResult;
@@ -47,6 +47,9 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
 
     [Tooltip("How long to wait for to localize PCFs")]
     public float PcfSearchTime = 30;
+
+    [Tooltip("If true, image tracking will start any time a user requests an anchor. Note: This increases the time it takes to localize when no image target is present.")]
+    public bool _autoSearchForImage = false;
 
     //These allow us to see the position and rotation of the detected image from the inspector
     private Vector3 _imagePos = Vector3.zero;
@@ -110,9 +113,9 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
 
     public void SearchForImage()
     {
-        if (searchForImageCoroutine == null)
+        if (_searchForImageCoroutine == null)
         {
-            searchForImageCoroutine = StartCoroutine(DoSearchForImage());
+            _searchForImageCoroutine = StartCoroutine(DoSearchForImage());
         }
     }
 
@@ -151,6 +154,9 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
         List<GenericCoordinateReference> genericCoordinateReferences = new List<GenericCoordinateReference>();
 
         yield return DoSearchForPCFs();
+
+        if (_autoSearchForImage)
+            yield return DoSearchForImage();
 
         genericCoordinateReferences.AddRange(_genericPcfReferences);
         genericCoordinateReferences.AddRange(_genericImageCoordinates);
@@ -288,7 +294,7 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
         yield return new WaitForEndOfFrame();
         MLImageTracker.Stop();
 
-        searchForImageCoroutine = null;
+        _searchForImageCoroutine = null;
 
 #endif
     }
