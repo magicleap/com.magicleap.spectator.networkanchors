@@ -36,6 +36,7 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
 
     //The inspector field where we assign our target images
     public ImageTargetInfo TargetInfo;
+    private Coroutine searchForImageCoroutine;
 
 #if PLATFORM_LUMIN
     private MLImageTracker.Target.Result _imageTargetResult;
@@ -57,12 +58,11 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
     
     private bool _isImageTrackingInitialized = false;
 
-    private GenericCoordinateReference _imageCoordinate;
+    //Only supports one image at the moment.
+    private List<GenericCoordinateReference> _genericImageCoordinates = new List<GenericCoordinateReference>();
 
-    //PCFs
+    private List<GenericCoordinateReference> _genericPcfReferences= new List<GenericCoordinateReference>();
 
-    //TODO: Handle loss of tracking
-    private bool _isLocalized;
 
     private Coroutine _getGenericCoordinatesEnumerator;
 
@@ -108,6 +108,14 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
 
     }
 
+    public void SearchForImage()
+    {
+        if (searchForImageCoroutine == null)
+        {
+            searchForImageCoroutine = StartCoroutine(DoSearchForImage());
+        }
+    }
+
     public void InitializeGenericCoordinates()
     {
 #if PLATFORM_LUMIN
@@ -140,6 +148,66 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
         //system start up
         InitializeGenericCoordinates();
 
+        List<GenericCoordinateReference> genericCoordinateReferences = new List<GenericCoordinateReference>();
+
+        yield return DoSearchForPCFs();
+
+        genericCoordinateReferences.AddRange(_genericPcfReferences);
+        genericCoordinateReferences.AddRange(_genericImageCoordinates);
+
+        Debug.Log("Returning "+ genericCoordinateReferences.Count + " genericPcfReferences.");
+
+        _coordinateReferencesCompletionSource?.TrySetResult(genericCoordinateReferences);
+#else
+        yield return new WaitForEndOfFrame();
+
+        _coordinateReferencesCompletionSource?.TrySetResult(null);
+
+#endif
+        _getGenericCoordinatesEnumerator = null;
+
+    }
+
+    private IEnumerator DoSearchForPCFs()
+    {
+        Debug.Log("Initializing PCFs");
+
+        float pcfRequestTime = Time.time;
+        while (Time.time - pcfRequestTime < PcfSearchTime && (!MLPersistentCoordinateFrames.IsStarted || !MLPersistentCoordinateFrames.IsLocalized))
+        {
+            yield return null;
+        }
+
+        //After the services starts we need to wait a frame before quarrying the results.
+        yield return new WaitForEndOfFrame();
+
+        _genericPcfReferences.Clear();
+
+        Debug.Log("Searching for PCFs");
+        //Find the Multi User PCFs
+        MLResult result = MLPersistentCoordinateFrames.FindAllPCFs(out List<MLPersistentCoordinateFrames.PCF> allPcFs, typesMask: MLPersistentCoordinateFrames.PCF.Types.MultiUserMultiSession);
+        if (result != MLResult.Code.Ok)
+        {
+            Debug.LogError("Could not find PCFs! Result : " + result);
+        }
+        else
+        {
+            Debug.Log("MLPersistentCoordinateFrames.FindAllPCFs Result : " + result);
+
+            _genericPcfReferences = allPcFs.OrderByDescending(x => x.Confidence)
+                .Select(x => new GenericCoordinateReference
+                    { CoordinateId = x.CFUID.ToString(), Position = x.Position, Rotation = x.Rotation }).ToList();
+
+            Debug.Log("Found " + _genericPcfReferences.Count + " MultiUserMultiSession coordinates");
+        }
+    }
+
+
+    private IEnumerator DoSearchForImage()
+    {
+#if PLATFORM_LUMIN
+        Debug.Log("Initializing Image Scan");
+
         if (string.IsNullOrEmpty(TargetInfo.Name) == false)
         {
             yield return new WaitForEndOfFrame();
@@ -147,13 +215,13 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
             bool privilegesGranted = false;
             bool hasPrivilegesResult = false;
 
-            
+
             MLPrivileges.RequestPrivilegesAsync(MLPrivileges.Id.CameraCapture).ContinueWith((x) =>
             {
                 if (x.Result.IsOk == false && x.Result != MLResult.Code.PrivilegeGranted)
                 {
                     privilegesGranted = false;
-                    Debug.LogError("image capture privileges not granted. Reason: " + x.Result);
+                    Debug.LogError("Image capture privileges not granted. Reason: " + x.Result);
                 }
                 else
                 {
@@ -176,7 +244,8 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
             if (_imageTarget == null)
             {
                 Debug.LogError("Cannot add image target");
-            } else
+            }
+            else
             {
                 Debug.Log("Image Target Added");
                 _isImageTrackingInitialized = true;
@@ -184,76 +253,49 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
 
         }
 
-        Debug.Log("Initializing PCFs");
-
-        float pcfRequestTime = Time.time;
-        while (Time.time - pcfRequestTime < PcfSearchTime && (!MLPersistentCoordinateFrames.IsStarted || !MLPersistentCoordinateFrames.IsLocalized))
-        {
-            yield return null;
-        }
-
-
-        //After the services starts we need to wait a frame before quarrying the results.
         yield return new WaitForEndOfFrame();
-
-        List<GenericCoordinateReference> genericPcfReferences = new List<GenericCoordinateReference>();
-
-        Debug.Log("Searching for PCFs");
-        //Find the Multi User PCFs
-        MLResult result = MLPersistentCoordinateFrames.FindAllPCFs(out List<MLPersistentCoordinateFrames.PCF> allPcFs, typesMask: MLPersistentCoordinateFrames.PCF.Types.MultiUserMultiSession);
-        if (result != MLResult.Code.Ok)
-        {
-            Debug.LogError("Could not find PCFs! Result : " + result);
-        }
-        else
-        {
-            Debug.Log("MLPersistentCoordinateFrames.FindAllPCFs Result : " + result);
-
-            genericPcfReferences = allPcFs.OrderByDescending(x => x.Confidence)
-                .Select(x => new GenericCoordinateReference
-                    { CoordinateId = x.CFUID.ToString(), Position = x.Position, Rotation = x.Rotation }).ToList();
-
-            Debug.Log("Found " + genericPcfReferences.Count + " MultiUserMultiSession coordinates");
-        }
-
 
         if (_isImageTrackingInitialized)
         {
-                    Debug.Log("Image Tracking initialized, searching for image target " + result);
-                    float imageRequestedTime = Time.time;
-                    while (Time.time - imageRequestedTime < ImageTargetSearchTime &&
-                           (_imageTargetResult.Status != MLImageTracker.Target.TrackingStatus.Tracked 
-                           || _imagePos.x < .01f && _imagePos.x > -0.01f  ))
-                    {
-                            yield return null;
-                    }
+            Debug.Log("Searching for image target");
+            float imageRequestedTime = Time.time;
+            while (Time.time - imageRequestedTime < ImageTargetSearchTime &&
+                   (_imageTargetResult.Status != MLImageTracker.Target.TrackingStatus.Tracked
+                    || _imagePos.x < .01f && _imagePos.x > -0.01f))
+            {
+                yield return null;
+            }
 
-                    _imageCoordinate = new GenericCoordinateReference()
-                    {
-                        CoordinateId = TargetInfo.Name,
-                        Position = _imagePos,
-                        Rotation = _imageRot
-                    };
+            if (_imageTargetResult.Status == MLImageTracker.Target.TrackingStatus.Tracked)
+            {
+                //We only support one image target so remove any existing ones.
+                _genericImageCoordinates.Clear();
 
-                    genericPcfReferences.Add(_imageCoordinate);
+                Debug.Log("Image target found, adding as generic coordinate reference.");
+                var imageCoordinate = new GenericCoordinateReference()
+                {
+                    CoordinateId = TargetInfo.Name,
+                    Position = _imagePos,
+                    Rotation = _imageRot
+                };
+
+                _genericImageCoordinates.Add(imageCoordinate);
+            }
         }
-        Debug.Log("Returning "+ genericPcfReferences.Count + " genericPcfReferences.");
 
-        _coordinateReferencesCompletionSource?.TrySetResult(genericPcfReferences);
-#else
+        MLImageTracker.Disable();
+        MLImageTracker.RemoveTarget(TargetInfo.Name);
         yield return new WaitForEndOfFrame();
+        MLImageTracker.Stop();
 
-        _coordinateReferencesCompletionSource?.TrySetResult(null);
+        searchForImageCoroutine = null;
 
 #endif
-        _getGenericCoordinatesEnumerator = null;
-
     }
 
     private void HandleOnLocalized(bool localized)
     {
         //TODO: Handle loss of tracking
-        _isLocalized = localized;
     }
 
     private void OnDisable()
@@ -266,7 +308,18 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
         CancelTasks();
     }
 
+    public GenericCoordinateReference GetImageCoordinateReference()
+    {
+        if (_genericImageCoordinates.Count > 1)
+        {
+            return _genericImageCoordinates[1];
+        }
+
+        return null;
+    }
+
 #if PLATFORM_LUMIN
+
     private void HandleImageTracked(MLImageTracker.Target imageTarget,
                                     MLImageTracker.Target.Result imageTargetResult)
     {
