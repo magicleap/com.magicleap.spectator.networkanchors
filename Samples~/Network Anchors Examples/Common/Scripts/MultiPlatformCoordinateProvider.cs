@@ -1,19 +1,19 @@
+using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.XR.Management;
 
-/// <summary>
-/// Provides the anchors/coordinates for each system. TODO:Create a more robust multi-platform coordinate manager.
-/// </summary>
 public class MultiPlatformCoordinateProvider : MonoBehaviour, IGenericCoordinateProvider
 {
     [Header("Providers")]
+#if PLATFORM_LUMIN
     public MLGenericCoordinateProvider MagicLeapProvider;
+#elif PLATFORM_ANDROID || PLATFORM_IOS
+    public MobileImageCoordinateProvider ARFoundationProvider;
+#endif
     public StandaloneCoordinateProvider StandaloneProvider;
-    
     private bool _forceStandalone;
-
 
     void Start()
     {
@@ -24,15 +24,17 @@ public class MultiPlatformCoordinateProvider : MonoBehaviour, IGenericCoordinate
             Debug.Log("Not initialized");
         }
     }
+
     public Task<List<GenericCoordinateReference>> RequestCoordinateReferences(bool refresh)
     {
-        if (_forceStandalone)
-        {
-            return StandaloneProvider.RequestCoordinateReferences(refresh);
-        }
 
 #if PLATFORM_LUMIN
+        if (_forceStandalone)
+            return StandaloneProvider.RequestCoordinateReferences(refresh);
+
         return MagicLeapProvider.RequestCoordinateReferences(refresh);
+#elif PLATFORM_ANDROID || PLATFORM_IOS
+        return ARFoundationProvider.RequestCoordinateReferences(refresh);
 #else
         return StandaloneProvider.RequestCoordinateReferences(refresh);
 #endif
@@ -40,14 +42,16 @@ public class MultiPlatformCoordinateProvider : MonoBehaviour, IGenericCoordinate
 
     public void InitializeGenericCoordinates()
     {
+#if PLATFORM_LUMIN
         if (_forceStandalone)
         {
             StandaloneProvider.InitializeGenericCoordinates();
             return;
         }
 
-#if PLATFORM_LUMIN
         MagicLeapProvider.InitializeGenericCoordinates();
+#elif PLATFORM_ANDROID || PLATFORM_IOS
+        ARFoundationProvider.InitializeGenericCoordinates();
 #else
         StandaloneProvider.InitializeGenericCoordinates();
 #endif
@@ -55,14 +59,16 @@ public class MultiPlatformCoordinateProvider : MonoBehaviour, IGenericCoordinate
 
     public void DisableGenericCoordinates()
     {
+#if PLATFORM_LUMIN
         if (_forceStandalone)
         {
             StandaloneProvider.DisableGenericCoordinates();
             return;
         }
 
-#if PLATFORM_LUMIN
         MagicLeapProvider.DisableGenericCoordinates();
+#elif PLATFORM_ANDROID || PLATFORM_IOS
+        ARFoundationProvider.DisableGenericCoordinates();
 #else
         StandaloneProvider.DisableGenericCoordinates();
 #endif
