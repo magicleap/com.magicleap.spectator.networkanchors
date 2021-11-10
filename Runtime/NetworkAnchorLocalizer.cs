@@ -183,7 +183,7 @@ public class NetworkAnchorLocalizer : MonoBehaviour
     /// <param name="anchor"></param>
     private void MoveToNetworkAnchor(NetworkAnchor anchor)
     {
-        Debug.Log("Moved to anchor to anchor id" + anchor.AnchorId);
+        Debug.Log("Moved anchor to anchor id" + anchor.AnchorId);
         this.transform.rotation = anchor.GetWorldRotation();
         this.transform.position = anchor.GetWorldPosition();
         OnAnchorPlaced.Invoke();
