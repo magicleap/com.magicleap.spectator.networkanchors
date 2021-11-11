@@ -27,6 +27,9 @@ public enum ImageTrackingStatus
 /// </summary>
 public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProvider
 {
+#if !PLATFORM_LUMIN
+#pragma warning disable 414
+#endif
     //Image Tracking
 
 #if PLATFORM_LUMIN
@@ -60,6 +63,7 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
     private GameObject _imageTargetVisual;
     
     private bool _isImageTrackingInitialized = false;
+
     private bool _imagePrefabUpdated = false;
 
     //Only supports one image at the moment.
@@ -73,6 +77,10 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
     private TaskCompletionSource<List<GenericCoordinateReference>> _coordinateReferencesCompletionSource;
 
     private const int RequestTimeoutMs = 20000;
+
+#if !PLATFORM_LUMIN
+#pragma warning restore 414
+#endif
 
     void Awake()
     {
@@ -221,7 +229,9 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
 #if PLATFORM_LUMIN
         Debug.Log("Initializing Image Scan");
 
+#pragma warning disable 618
         MLImageTracker.Start();
+#pragma warning restore 618
         yield return new WaitForEndOfFrame();
         MLImageTracker.Enable();
 
@@ -288,6 +298,12 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
                 //We only support one image target so remove any existing ones.
                 _genericImageCoordinates.Clear();
 
+                //Wait for tracker to update position before removing target and associated update function.
+                while (!_imagePrefabUpdated)
+                {
+                    yield return null;
+                }
+
                 Debug.Log("Image target found, adding as generic coordinate reference.");
                 var imageCoordinate = new GenericCoordinateReference()
                 {
@@ -300,16 +316,12 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
             }
         }
 
-        while (!_imagePrefabUpdated)
-        {
-            //waiting for prefab to update position before removing target and associated update function
-            yield return null;
-        }
-
         MLImageTracker.Disable();
         MLImageTracker.RemoveTarget(TargetInfo.Name);
         yield return new WaitForEndOfFrame();
+#pragma warning disable 618
         MLImageTracker.Stop();
+#pragma warning restore 618
 
         _searchForImageCoroutine = null;
         _isImageTrackingInitialized = false;

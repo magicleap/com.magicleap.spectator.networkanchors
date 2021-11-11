@@ -1,8 +1,7 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
+#if PLATFORM_LUMIN
 using UnityEngine.XR.MagicLeap;
-
+#endif
 /// <summary>
 /// Example script to trigger Network Anchor Service events on the Magic Leap
 /// </summary>
@@ -75,7 +74,8 @@ public class MagicLeapNetworkAnchorExample : MonoBehaviour
             NetworkAnchorLocalizer.CreateOrGetAnchor();
         }
     }
-    ///
+
+#if PLATFORM_LUMIN
     /// <summary>
     /// Handles the event for button down.
     /// </summary>
@@ -88,7 +88,6 @@ public class MagicLeapNetworkAnchorExample : MonoBehaviour
             return;
         }
 
-#if PLATFORM_LUMIN
         MLInput.Controller controller = MLInput.GetController(controllerId);
 
         if (controller != null && controller.Id == controllerId &&
@@ -98,7 +97,8 @@ public class MagicLeapNetworkAnchorExample : MonoBehaviour
             NetworkAnchorLocalizer.CreateOrGetAnchor();
             controller.StartFeedbackPatternVibe(MLInput.Controller.FeedbackPatternVibe.ForceDown, MLInput.Controller.FeedbackIntensity.Medium);
         }
-#endif
+
     }
+#endif
 
 }
