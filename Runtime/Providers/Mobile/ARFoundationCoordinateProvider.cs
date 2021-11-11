@@ -7,7 +7,7 @@ using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
 #endif
 
-public class MobileImageCoordinateProvider : MonoBehaviour, IGenericCoordinateProvider
+public class ARFoundationCoordinateProvider : MonoBehaviour, IGenericCoordinateProvider
 {
     public string AnchorName;
     public GameObject TrackedImagePrefab;
@@ -99,8 +99,13 @@ public class MobileImageCoordinateProvider : MonoBehaviour, IGenericCoordinatePr
 
     }
 #endif
-
+#if !AR_FOUNDATION
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+#endif
     public async Task<List<GenericCoordinateReference>> RequestCoordinateReferences(bool refresh)
+#if !AR_FOUNDATION
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
+#endif
     {
 #if AR_FOUNDATION
         _completionSource.TrySetResult(new List<GenericCoordinateReference>());
@@ -117,6 +122,7 @@ public class MobileImageCoordinateProvider : MonoBehaviour, IGenericCoordinatePr
 
         return _completionSource.Task.Result;
 #endif
+
         return new List<GenericCoordinateReference>();
     }
 
