@@ -9,7 +9,7 @@ using Hashtable = ExitGames.Client.Photon.Hashtable;
 using UnityEngine;
 
 /// <summary>
-/// Sends information from the network anchor service to photon and relays photon messagesthe information to the Network Anchor Service. Also starts the service.
+/// Interfaces with Photon and transmits the information to the Network Anchor Service. Also starts the service.
 /// </summary>
 public class PhotonNetworkAnchorController : MonoBehaviour
 #if PHOTON
@@ -18,7 +18,8 @@ public class PhotonNetworkAnchorController : MonoBehaviour
 {
     public NetworkAnchorService NetworkAnchorService;
 
-    public MultiPlatformCoordinateProvider MultiPlatformCoordinateProvider;
+    //Gets the coordinates for the target platform
+    private MultiPlatformCoordinateProvider _multiPlatformCoordinateProvider;
 
 #if PHOTON
     private void Awake()
@@ -26,6 +27,7 @@ public class PhotonNetworkAnchorController : MonoBehaviour
         PhotonNetwork.NetworkingClient.LoadBalancingPeer.ReuseEventInstance = true;
         NetworkAnchorService.OnBroadcastNetworkEvent += SendNetworkAnchorEvent;
         PhotonNetwork.AddCallbackTarget(this);
+        PhotonNetwork.AutomaticallySyncScene = false;
     }
 
     private void OnValidate()
@@ -34,10 +36,7 @@ public class PhotonNetworkAnchorController : MonoBehaviour
         {
             NetworkAnchorService = FindObjectOfType<NetworkAnchorService>();
         }
-        if (MultiPlatformCoordinateProvider == null)
-        {
-            MultiPlatformCoordinateProvider = FindObjectOfType<MultiPlatformCoordinateProvider>();
-        }
+        
     }
 
     public IEnumerator Start()
@@ -46,12 +45,13 @@ public class PhotonNetworkAnchorController : MonoBehaviour
         {
             yield return null;
         }
-        //Wait 3 seconds in case something needs to initialize
         yield return new WaitForSeconds(3);
 
-        yield return NetworkAnchorService.RequestConnectToService(PhotonNetwork.LocalPlayer.ActorNumber, MultiPlatformCoordinateProvider);
-
-        //Wait 3 seconds in case something needs to initialize
+        if (_multiPlatformCoordinateProvider == null)
+        {
+            _multiPlatformCoordinateProvider = FindObjectOfType<MultiPlatformCoordinateProvider>();
+        }
+        yield return NetworkAnchorService.RequestConnectToService(PhotonNetwork.LocalPlayer.ActorNumber, _multiPlatformCoordinateProvider);
         yield return new WaitForSeconds(3);
 
         if (NetworkAnchorService.IsConnected == false)
@@ -122,7 +122,8 @@ public class PhotonNetworkAnchorController : MonoBehaviour
             NetworkAnchorService.DisconnectFromService(otherPlayer.ActorNumber);
     }
 
-    #region NotUsed
+    #region NotImplemented
+
     public void OnPlayerEnteredRoom(Player newPlayer)
     {
     }

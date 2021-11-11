@@ -60,6 +60,7 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
     private GameObject _imageTargetVisual;
     
     private bool _isImageTrackingInitialized = false;
+    private bool _imagePrefabUpdated = false;
 
     //Only supports one image at the moment.
     private List<GenericCoordinateReference> _genericImageCoordinates = new List<GenericCoordinateReference>();
@@ -176,6 +177,7 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
 
     private IEnumerator DoSearchForPCFs()
     {
+#if PLATFORM_LUMIN
         Debug.Log("Initializing PCFs");
 
         float pcfRequestTime = Time.time;
@@ -206,6 +208,11 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
 
             Debug.Log("Found " + _genericPcfReferences.Count + " MultiUserMultiSession coordinates");
         }
+
+#else
+        yield return null;
+#endif
+
     }
 
 
@@ -213,6 +220,10 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
     {
 #if PLATFORM_LUMIN
         Debug.Log("Initializing Image Scan");
+
+        MLImageTracker.Start();
+        yield return new WaitForEndOfFrame();
+        MLImageTracker.Enable();
 
         if (string.IsNullOrEmpty(TargetInfo.Name) == false)
         {
@@ -289,13 +300,23 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
             }
         }
 
+        while (!_imagePrefabUpdated)
+        {
+            //waiting for prefab to update position before removing target and associated update function
+            yield return null;
+        }
+
         MLImageTracker.Disable();
         MLImageTracker.RemoveTarget(TargetInfo.Name);
         yield return new WaitForEndOfFrame();
         MLImageTracker.Stop();
 
         _searchForImageCoroutine = null;
+        _isImageTrackingInitialized = false;
+        _imagePrefabUpdated = false;
 
+#else
+        yield return null;
 #endif
     }
 
@@ -329,7 +350,6 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
     private void HandleImageTracked(MLImageTracker.Target imageTarget,
                                     MLImageTracker.Target.Result imageTargetResult)
     {
-
         if (imageTargetResult.Status == MLImageTracker.Target.TrackingStatus.Tracked)
         {
             _imageTargetResult = imageTargetResult;
@@ -340,10 +360,10 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
                 _imageTargetVisual.transform.position = imageTargetResult.Position;
                 _imageTargetVisual.transform.rotation = imageTargetResult.Rotation;
                 _imageTargetVisual.SetActive(true);
+                _imagePrefabUpdated = true;
             }
           
         }
-
     }
 
 #endif

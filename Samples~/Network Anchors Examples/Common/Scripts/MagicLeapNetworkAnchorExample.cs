@@ -3,15 +3,36 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.XR.MagicLeap;
 
+/// <summary>
+/// Example script to trigger Network Anchor Service events on the Magic Leap
+/// </summary>
 public class MagicLeapNetworkAnchorExample : MonoBehaviour
 {
-    public NetworkAnchorLocalizer NetworkAnchorLocalizer;
+    private NetworkAnchorLocalizer NetworkAnchorLocalizer;
 
     // Start is called before the first frame update
     void Start()
     {
 #if PLATFORM_LUMIN
         MLInput.OnControllerButtonDown += HandleOnButtonDown;
+        MLInput.OnTriggerDown += MLInput_OnTriggerDown;
+#endif
+    }
+
+    private void MLInput_OnTriggerDown(byte controllerId, float triggerValue)
+    {
+#if PLATFORM_LUMIN
+        var coordinateProvider = FindObjectOfType<MLGenericCoordinateProvider>();
+        if (coordinateProvider)
+        {
+            coordinateProvider.SearchForImage();
+           var coordinate = coordinateProvider.GetImageCoordinateReference();
+           if (coordinate !=null)
+           {
+               NetworkAnchorLocalizer.transform.position = coordinate.Position;
+               NetworkAnchorLocalizer.transform.rotation = coordinate.Rotation;
+           }
+        }
 #endif
     }
 
@@ -26,11 +47,31 @@ public class MagicLeapNetworkAnchorExample : MonoBehaviour
 #endif
     }
 
+    private bool CanSendInputEvents()
+    {
+        if (NetworkAnchorLocalizer == null)
+        {
+            NetworkAnchorLocalizer = FindObjectOfType<NetworkAnchorLocalizer>();
+            if (NetworkAnchorLocalizer == null)
+            {
+                Debug.LogError("Cound not find NetworkAnchorLocalizer in the scene. Input events will not work");
+                return false;
+            }
+        }
+
+        return true;
+    }
+
 
     void Update()
     {
+
         if (Input.GetKey(KeyCode.Space))
         {
+            if (CanSendInputEvents() == false)
+            {
+                return;
+            }
             NetworkAnchorLocalizer.CreateOrGetAnchor();
         }
     }
@@ -42,6 +83,10 @@ public class MagicLeapNetworkAnchorExample : MonoBehaviour
     /// <param name="button">The button that is being pressed.</param>
     private void HandleOnButtonDown(byte controllerId, MLInput.Controller.Button button)
     {
+        if (CanSendInputEvents() == false)
+        {
+            return;
+        }
 
 #if PLATFORM_LUMIN
         MLInput.Controller controller = MLInput.GetController(controllerId);
@@ -49,12 +94,6 @@ public class MagicLeapNetworkAnchorExample : MonoBehaviour
         if (controller != null && controller.Id == controllerId &&
             button == MLInput.Controller.Button.Bumper)
         {
-
-            //Move the network anchor to our controller
-            NetworkAnchorLocalizer.transform.position = controller.Position;
-            NetworkAnchorLocalizer.transform.rotation = controller.Orientation;
-
-
             // Demonstrate haptics using callbacks.
             NetworkAnchorLocalizer.CreateOrGetAnchor();
             controller.StartFeedbackPatternVibe(MLInput.Controller.FeedbackPatternVibe.ForceDown, MLInput.Controller.FeedbackIntensity.Medium);

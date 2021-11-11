@@ -10,10 +10,14 @@ public class MultiPlatformCoordinateProvider : MonoBehaviour, IGenericCoordinate
 #if PLATFORM_LUMIN
     public MLGenericCoordinateProvider MagicLeapProvider;
 #elif PLATFORM_ANDROID || PLATFORM_IOS
-    public MobileImageCoordinateProvider ARFoundationProvider;
+    public ARFoundationCoordinateProvider ARFoundationProvider;
 #endif
     public StandaloneCoordinateProvider StandaloneProvider;
     private bool _forceStandalone;
+
+    [Header("UI Instructions")]
+    public GameObject MLText;
+    public GameObject MobileText;
 
     void Start()
     {
@@ -23,6 +27,12 @@ public class MultiPlatformCoordinateProvider : MonoBehaviour, IGenericCoordinate
             _forceStandalone = true;
             Debug.Log("Not initialized");
         }
+
+#if PLATFORM_LUMIN
+        MLText.SetActive(true);
+#elif PLATFORM_ANDROID || PLATFORM_IOS
+        MobileText.SetActive(true);
+#endif
     }
 
     public Task<List<GenericCoordinateReference>> RequestCoordinateReferences(bool refresh)
