@@ -32,6 +32,7 @@ public class ARFoundationCoordinateProvider : MonoBehaviour, IGenericCoordinateP
     private ARTrackedImageManager _arTrackedImageManager;
 #endif
 
+    private GenericCoordinateReference _cachedImageCoordinate;
     private List<GenericCoordinateReference> _genericCoordinateReference = new List<GenericCoordinateReference>();
 
     TaskCompletionSource<List<GenericCoordinateReference>> _completionSource = new TaskCompletionSource<List<GenericCoordinateReference>>();
@@ -78,7 +79,7 @@ public class ARFoundationCoordinateProvider : MonoBehaviour, IGenericCoordinateP
 
             if (image.trackingState == TrackingState.Tracking)
             {
-                var genericCoordinate = new GenericCoordinateReference()
+               _cachedImageCoordinate = new GenericCoordinateReference()
                 {
                     CoordinateId = AnchorName,
                     Position = image.transform.position,
@@ -90,7 +91,7 @@ public class ARFoundationCoordinateProvider : MonoBehaviour, IGenericCoordinateP
                     TrackedImagePrefab.transform.position = image.transform.position;
                     TrackedImagePrefab.transform.rotation = image.transform.rotation;
                 }
-                _genericCoordinateReference.Add(genericCoordinate);
+                _genericCoordinateReference.Add(_cachedImageCoordinate);
             }
 
         }
@@ -107,16 +108,24 @@ public class ARFoundationCoordinateProvider : MonoBehaviour, IGenericCoordinateP
 #pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
 #endif
     {
+
 #if AR_FOUNDATION
-        _completionSource.TrySetResult(new List<GenericCoordinateReference>());
         _completionSource = new TaskCompletionSource<List<GenericCoordinateReference>>();
 
         //With timeout
         if (await Task.WhenAny(_completionSource.Task, Task.Delay(RequestTimeoutMs * 100 )) != _completionSource.Task)
         {
-            Debug.LogError("no image targets found, count: " + _arTrackedImages.Count);
-            return new List<GenericCoordinateReference>();
+            if (_cachedImageCoordinate != null)
+            {
+                return new List<GenericCoordinateReference>() {_cachedImageCoordinate};
+            }
+            else
+            {
+             Debug.LogError("no image targets found, count: " + _arTrackedImages.Count);
+             return new List<GenericCoordinateReference>();
+            }
         }
+
         // You can also use no timeout
         // await _completionSource.Task;
 
