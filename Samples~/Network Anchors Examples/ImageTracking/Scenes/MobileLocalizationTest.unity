@@ -123,17 +123,6 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!114 &202487332 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 4773021637207103151, guid: 4045f35094b85c64cb4114eb2d697606, type: 3}
-  m_PrefabInstance: {fileID: 4886010662454033997}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 94ae99c7f53e741f9895f3255bd6a847, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1 &688778199
 GameObject:
   m_ObjectHideFlags: 0
@@ -200,11 +189,6 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 4
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &980320587 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 1503098306383170247, guid: cbb845054dc8e634b9132c7181bcc92b, type: 3}
-  m_PrefabInstance: {fileID: 1503098305896920625}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1034032535
 GameObject:
   m_ObjectHideFlags: 0
@@ -513,11 +497,6 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: cbb845054dc8e634b9132c7181bcc92b, type: 3}
---- !u!1 &1503098305896920626 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 2621489869334313051, guid: cbb845054dc8e634b9132c7181bcc92b, type: 3}
-  m_PrefabInstance: {fileID: 1503098305896920625}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &4886010662454033997
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -525,18 +504,6 @@ PrefabInstance:
   m_Modification:
     m_TransformParent: {fileID: 0}
     m_Modifications:
-    - target: {fileID: 2232704395899435169, guid: 4045f35094b85c64cb4114eb2d697606, type: 3}
-      propertyPath: MLText
-      value: 
-      objectReference: {fileID: 980320587}
-    - target: {fileID: 2232704395899435169, guid: 4045f35094b85c64cb4114eb2d697606, type: 3}
-      propertyPath: MobileText
-      value: 
-      objectReference: {fileID: 1503098305896920626}
-    - target: {fileID: 2232704395899435169, guid: 4045f35094b85c64cb4114eb2d697606, type: 3}
-      propertyPath: ARFoundationProvider
-      value: 
-      objectReference: {fileID: 202487332}
     - target: {fileID: 2232704397626967014, guid: 4045f35094b85c64cb4114eb2d697606, type: 3}
       propertyPath: m_Name
       value: PunNetworkAnchorController

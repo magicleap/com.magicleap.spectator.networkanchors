@@ -12,6 +12,8 @@ GameObject:
   - component: {fileID: 1503098305751244064}
   - component: {fileID: 1503098305751244065}
   - component: {fileID: 1503098305751244094}
+  - component: {fileID: 7210456237796594191}
+  - component: {fileID: 8267221747219671254}
   m_Layer: 5
   m_Name: InfoCanvas
   m_TagString: Untagged
@@ -102,6 +104,34 @@ MonoBehaviour:
   m_BlockingMask:
     serializedVersion: 2
     m_Bits: 4294967295
+--- !u!114 &7210456237796594191
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1503098305751244095}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6af68a48b3116f54fb2ce994dd8b8130, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  EnabledPlatforms: 4
+  TargetObject: {fileID: 1503098306383170247}
+--- !u!114 &8267221747219671254
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1503098305751244095}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6af68a48b3116f54fb2ce994dd8b8130, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  EnabledPlatforms: 3
+  TargetObject: {fileID: 2621489869334313051}
 --- !u!1 &1503098306173720096
 GameObject:
   m_ObjectHideFlags: 0

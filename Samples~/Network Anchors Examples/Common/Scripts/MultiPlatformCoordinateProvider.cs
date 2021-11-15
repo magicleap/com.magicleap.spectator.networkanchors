@@ -7,17 +7,10 @@ using UnityEngine.XR.Management;
 public class MultiPlatformCoordinateProvider : MonoBehaviour, IGenericCoordinateProvider
 {
     [Header("Providers")]
-#if PLATFORM_LUMIN
     public MLGenericCoordinateProvider MagicLeapProvider;
-#elif PLATFORM_ANDROID || PLATFORM_IOS
     public ARFoundationCoordinateProvider ARFoundationProvider;
-#endif
     public StandaloneCoordinateProvider StandaloneProvider;
     private bool _forceStandalone;
-
-    [Header("UI Instructions")]
-    public GameObject MLText;
-    public GameObject MobileText;
 
     void Start()
     {
@@ -28,13 +21,6 @@ public class MultiPlatformCoordinateProvider : MonoBehaviour, IGenericCoordinate
             Debug.Log("Not initialized");
         }
 
-#if PLATFORM_LUMIN
-        MLText.SetActive(true);
-        MobileText.SetActive(false);
-#elif PLATFORM_ANDROID || PLATFORM_IOS
-        MLText.SetActive(false);
-        MobileText.SetActive(true);
-#endif
     }
 
     public Task<List<GenericCoordinateReference>> RequestCoordinateReferences(bool refresh)

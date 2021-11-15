@@ -25,9 +25,14 @@ public class PhotonNetworkAnchorController : MonoBehaviour
     private void Awake()
     {
         PhotonNetwork.NetworkingClient.LoadBalancingPeer.ReuseEventInstance = true;
-        NetworkAnchorService.OnBroadcastNetworkEvent += SendNetworkAnchorEvent;
         PhotonNetwork.AddCallbackTarget(this);
         PhotonNetwork.AutomaticallySyncScene = false;
+
+        if (NetworkAnchorService == null)
+        {
+            NetworkAnchorService = FindObjectOfType<NetworkAnchorService>();
+        }
+        NetworkAnchorService.OnBroadcastNetworkEvent += SendNetworkAnchorEvent;
     }
 
     private void OnValidate()
@@ -45,6 +50,7 @@ public class PhotonNetworkAnchorController : MonoBehaviour
         {
             yield return null;
         }
+
         yield return new WaitForSeconds(3);
 
         if (_multiPlatformCoordinateProvider == null)
@@ -52,6 +58,7 @@ public class PhotonNetworkAnchorController : MonoBehaviour
             _multiPlatformCoordinateProvider = FindObjectOfType<MultiPlatformCoordinateProvider>();
         }
         yield return NetworkAnchorService.RequestConnectToService(PhotonNetwork.LocalPlayer.ActorNumber, _multiPlatformCoordinateProvider);
+
         yield return new WaitForSeconds(3);
 
         if (NetworkAnchorService.IsConnected == false)

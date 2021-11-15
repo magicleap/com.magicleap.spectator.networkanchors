@@ -214,6 +214,10 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3689454676909171042, guid: c611efc35efc27e47acbd1d6ee1e3359, type: 3}
+      propertyPath: ARFoundationProvider
+      value: 
+      objectReference: {fileID: 4773021637207103151}
+    - target: {fileID: 3689454676909171042, guid: c611efc35efc27e47acbd1d6ee1e3359, type: 3}
       propertyPath: MLCoordinateProviderPrefab
       value: 
       objectReference: {fileID: 2232704397420405260}

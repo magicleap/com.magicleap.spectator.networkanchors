@@ -6,7 +6,9 @@
         "GUID:1fc69d160eafe774ab0a8e5191500311"
     ],
     "includePlatforms": [
+        "Android",
         "Editor",
+        "iOS",
         "Lumin"
     ],
     "excludePlatforms": [],

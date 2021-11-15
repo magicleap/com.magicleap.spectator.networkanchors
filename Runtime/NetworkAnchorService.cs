@@ -134,15 +134,16 @@ public class NetworkAnchorService : MonoBehaviour
         ALL =-3
     }
 
-    /// <summary>
-    /// How long requests have before they timeout.
-    /// </summary>
-    const int RequestTimeoutMs = 300000;
 
     /// <summary>
     /// How long requests have before they timeout.
     /// </summary>
-    const int RemoteCoordinateRequestTimeoutMs = 300000;
+    const int RequestTimeoutMs = 30000;
+
+    /// <summary>
+    /// How long requests have before they timeout.
+    /// </summary>
+    const int RemoteCoordinateRequestTimeoutMs = 30000;
 
     /// <summary>
     /// When enabled, all info debug logs are written to the console.
@@ -338,7 +339,7 @@ public class NetworkAnchorService : MonoBehaviour
 
             //Wait for players to respond, or timeout.
             var content =
-                await TaskWithTimeout(_getNetworkAnchorResponseCompletionSource.Task,TimeSpan.FromMilliseconds(RequestTimeoutMs));
+                await TaskWithTimeout(_getNetworkAnchorResponseCompletionSource.Task,TimeSpan.FromMilliseconds(RemoteCoordinateRequestTimeoutMs));
 
             //If the result is null, check the other players.
             if (content==null)

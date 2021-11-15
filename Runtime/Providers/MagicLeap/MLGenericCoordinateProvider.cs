@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
+#if PLATFORM_LUMIN
 using UnityEngine.XR.MagicLeap;
-
+#endif
 [System.Serializable]
 public class ImageTargetInfo
 {
