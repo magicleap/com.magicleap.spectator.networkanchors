@@ -121,9 +121,9 @@ public class ARFoundationCoordinateProvider : MonoBehaviour, IGenericCoordinateP
         // await _completionSource.Task;
 
         return _completionSource.Task.Result;
-#endif
-
+#else
         return new List<GenericCoordinateReference>();
+#endif
     }
 
 
