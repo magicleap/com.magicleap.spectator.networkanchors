@@ -30,18 +30,19 @@ public class MultiPlatformCoordinateProvider : MonoBehaviour, IGenericCoordinate
 
 #if PLATFORM_LUMIN
         MLText.SetActive(true);
+        MobileText.SetActive(false);
 #elif PLATFORM_ANDROID || PLATFORM_IOS
+        MLText.SetActive(false);
         MobileText.SetActive(true);
 #endif
     }
 
     public Task<List<GenericCoordinateReference>> RequestCoordinateReferences(bool refresh)
     {
-
-#if PLATFORM_LUMIN
         if (_forceStandalone)
             return StandaloneProvider.RequestCoordinateReferences(refresh);
 
+#if PLATFORM_LUMIN
         return MagicLeapProvider.RequestCoordinateReferences(refresh);
 #elif PLATFORM_ANDROID || PLATFORM_IOS
         return ARFoundationProvider.RequestCoordinateReferences(refresh);
@@ -52,13 +53,13 @@ public class MultiPlatformCoordinateProvider : MonoBehaviour, IGenericCoordinate
 
     public void InitializeGenericCoordinates()
     {
-#if PLATFORM_LUMIN
         if (_forceStandalone)
         {
             StandaloneProvider.InitializeGenericCoordinates();
             return;
         }
 
+#if PLATFORM_LUMIN
         MagicLeapProvider.InitializeGenericCoordinates();
 #elif PLATFORM_ANDROID || PLATFORM_IOS
         ARFoundationProvider.InitializeGenericCoordinates();
@@ -69,13 +70,13 @@ public class MultiPlatformCoordinateProvider : MonoBehaviour, IGenericCoordinate
 
     public void DisableGenericCoordinates()
     {
-#if PLATFORM_LUMIN
         if (_forceStandalone)
         {
             StandaloneProvider.DisableGenericCoordinates();
             return;
         }
 
+#if PLATFORM_LUMIN
         MagicLeapProvider.DisableGenericCoordinates();
 #elif PLATFORM_ANDROID || PLATFORM_IOS
         ARFoundationProvider.DisableGenericCoordinates();
