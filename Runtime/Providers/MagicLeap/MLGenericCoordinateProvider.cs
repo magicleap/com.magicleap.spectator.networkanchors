@@ -11,6 +11,7 @@ public class ImageTargetInfo
 {
     public string Name;
     public Texture2D Image;
+    [Tooltip("The size of the long edge of the image target in meters.")]
     public float LongerDimension;
 }
 
@@ -53,7 +54,7 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
     public float PcfSearchTime = 30;
 
     [Tooltip("If true, image tracking will start any time a user requests an anchor. Note: This increases the time it takes to localize when no image target is present.")]
-    public bool _autoSearchForImage = false;
+    public bool _autoSearchForImage = true;
 
     //These allow us to see the position and rotation of the detected image from the inspector
     private Vector3 _imagePos = Vector3.zero;
