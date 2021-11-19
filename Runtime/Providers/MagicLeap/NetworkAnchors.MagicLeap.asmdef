@@ -5,12 +5,7 @@
         "GUID:207648dc5008a3b4faafef6c40b7b8ec",
         "GUID:1fc69d160eafe774ab0a8e5191500311"
     ],
-    "includePlatforms": [
-        "Android",
-        "Editor",
-        "iOS",
-        "Lumin"
-    ],
+    "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,
