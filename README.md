@@ -1,4 +1,5 @@
 
+
 # com.magicleap.spectator.networkanchors
 A lightweight package that makes creating colocation experiences easier using a shared origin.
 
@@ -8,6 +9,7 @@ A lightweight package that makes creating colocation experiences easier using a 
 - [Additional Networking Solutions](#add-additional-networking-solutions)
 - [Extend Coordinate Providers](#extend-coordinate-providers)
 - [Troubleshooting](#troubleshooting)
+- [Tips](#Tips)
 
 ## Install Guide
 This package can be installed by cloning or unzipping this repository into your projects `Packages` folder or by importing the package using the Package Manager, by doing the following:
@@ -77,6 +79,8 @@ After Adding the Network Anchors package to the package manager, you will be abl
 **Magic Leap**  
 To create or find a network anchor on the Magic Leap Headsets, press the trigger on the controller.  
 
+When  Auto Search for Image is disabled on the MLCoordinateProvider, Image tracking can be initialized using by pressing the trigger on the Controller. When initialized, the Magic Leap will try to locate an Image target for 1 minute.
+
 **Desktop**  
 If you are running the game on your Desktop, without Zero Iteration, enable `Force Standalone` on the MultiPlatformCoordinateProvider object in your scene. You can then enter play mode and hit spacebar. Localizing on your desktop will preserve the network anchors position even when the owner of the network anchor leaves.
 
@@ -116,3 +120,10 @@ If the headsets cannot localize, follow the following troubleshooting steps.
 * Make sure that you do not press **Skip** when initializing the headset, and that the headset showed a confirmation that the location was recognized.
 * Enable the **Shared World** feature in the devices **Settings > Privacy** menu.
 * Restart your headset.
+
+## Tips
+If you do not expect to localize with mobile devices, you can disable searching for an image target to make localization faster. To do this:
+1. Select the MultiPlatformCoordinateProvider prefab then select the MLGenericCoordinateProvier child object. 
+2. In the inspector, disable Auto Search for Image.
+
+Note : Image scanning can still be triggered using an external script. See the MagicLeapNetworkAnchorExample.cs script for reference.
