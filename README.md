@@ -20,8 +20,16 @@ This package can be installed by cloning or unzipping this repository into your 
 ## Getting Started (Photon)
 This section includes steps to create a multi-user experience using Photon and sample scripts provided in the package.
 
-####  Enable Photon Examples
-1. Add download PUN 2 from the asset store and import it into your project.
+#### Download the examples
+After Adding the Network Anchors package to the package manager, you will be able to install the examples via the package manager by selecting the package and expanding the dropdown title **Samples**.
+
+### Enable Magic Leap Privileges 
+1. Open the Player Settings Window
+2. Select MagicLeap/Manifest settings
+3. Enable the **PcfRead**, **Internet** and **Camera Capture**.
+
+#### Enable the Photon Examples
+1. Add downloading PUN 2 from the asset store and importing it into your project.
 2. Define the your Photon credentials in using the **PUN Wizard** or **PUN Server settings**.
 3. To enable the photon example scripts, navigate to the Player Settings  (**Edit > Project Settings** , then click **Player**).
 4. Under the **Other Settings** section, add **PHOTON** to the **Scripting Define Symbols**. Do this for each of your target platforms settings (Standalone and Lumin). 
@@ -34,7 +42,7 @@ This section includes steps to create a multi-user experience using Photon and s
 #### Create the Photon Controller
 1. Create an empty GameObject named `PhotonController`
 2. Add the `Simple Photon Room` and `Simple Photon Lobby` components.
-3. Set the Simple Photon Room's `Photon User Prefab` to the `SimplePhotonUser` prefab located under `Assets/Network Anchors Examples/ PhotonExample/Resources/`
+3. Set the Simple Photon Room's `Photon User Prefab` to the `SimplePhotonUser` prefab located under `/Assets/Samples/Network Anchors/1.1.0/Examples/PhotonExample/Resources/`
 
 #### Implementing Network Anchors
 1. Create an empty GameObject called `NetworkAnchor`
@@ -47,7 +55,7 @@ This section includes steps to create a multi-user experience using Photon and s
     3. Select the NetworkAnchor
     4. Create a new OnAnchorPlaced event
     5. Set the event target as the Cube and the event as `GameObject.SetActive`, set it to true.
-1. Add the MultiPlatformCoordinateProvider prefab from `Assets/NetworkAnchorsExamples/PhotonExample/Prefabs` into the scene.
+1. Add the MultiPlatformCoordinateProvider prefab from `/Assets/Samples/Network Anchors/1.1.0/Examples/PhotonExample/Prefabs` into the scene.
 
 #### Connect the Service to Photon
 1. Create an empty GameObject called PunNetworkAnchorController
