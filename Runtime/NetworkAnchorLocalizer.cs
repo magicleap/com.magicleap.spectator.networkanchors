@@ -49,6 +49,13 @@ public class NetworkAnchorLocalizer : MonoBehaviour
             Debug.LogWarning("Another process is loading.");
             return;
         }
+        
+        if (NetworkAnchorService.Instance.NumberOfConnectedPlayers < 2)
+        {
+            Debug.Log("No anchor exists. Less than 2 players connected.");
+            return;
+        }
+        
         StartCoroutine(DoGetExistingAnchor());
     }
 
