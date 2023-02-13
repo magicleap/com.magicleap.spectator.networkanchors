@@ -51,7 +51,7 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
     public float ImageTargetSearchTime = 60;
 
     [Tooltip("How long to wait for to localize PCFs")]
-    public float PcfSearchTime = 30;
+    public float PcfSearchTime = 3;
 
     [Tooltip("If true, image tracking will start any time a user requests an anchor. Note: This increases the time it takes to localize when no image target is present.")]
     public bool _autoSearchForImage = true;
@@ -324,7 +324,7 @@ public class MLGenericCoordinateProvider : MonoBehaviour, IGenericCoordinateProv
 #pragma warning disable 618
         MLImageTracker.Stop();
 #pragma warning restore 618
-
+        _imageTarget?.Dispose();
         _searchForImageCoroutine = null;
         _isImageTrackingInitialized = false;
         _imagePrefabUpdated = false;
